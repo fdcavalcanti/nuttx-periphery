@@ -1,0 +1,84 @@
+"""NuttX ioctl base values and peripheral ioctl constants."""
+
+from __future__ import annotations
+
+
+def _ioc(ioctl_type: int, nr: int) -> int:
+    """Mirror NuttX _IOC(type, nr) from include/nuttx/fs/ioctl.h."""
+    return ioctl_type | nr
+
+
+# Base values from NuttX include/nuttx/fs/ioctl.h
+PWMIOC_BASE = 0x0C00
+ULED_BASE = 0x1D00
+I2C_BASE = 0x2100
+SPI_BASE = 0x2200
+GPIO_BASE = 0x2300
+
+
+# GPIO: include/nuttx/ioexpander/gpio.h
+GPIOC_WRITE = _ioc(GPIO_BASE, 0x0001)
+GPIOC_READ = _ioc(GPIO_BASE, 0x0002)
+GPIOC_PINTYPE = _ioc(GPIO_BASE, 0x0003)
+GPIOC_REGISTER = _ioc(GPIO_BASE, 0x0004)
+GPIOC_UNREGISTER = _ioc(GPIO_BASE, 0x0005)
+GPIOC_SETPINTYPE = _ioc(GPIO_BASE, 0x0006)
+GPIOC_SETDEBOUNCE = _ioc(GPIO_BASE, 0x0007)
+GPIOC_IRQ_SETMASK = _ioc(GPIO_BASE, 0x0008)
+
+
+# PWM: include/nuttx/timers/pwm.h
+PWMIOC_SETCHARACTERISTICS = _ioc(PWMIOC_BASE, 0x0001)
+PWMIOC_GETCHARACTERISTICS = _ioc(PWMIOC_BASE, 0x0002)
+PWMIOC_START = _ioc(PWMIOC_BASE, 0x0003)
+PWMIOC_STOP = _ioc(PWMIOC_BASE, 0x0004)
+PWMIOC_FAULTS_FETCH_AND_CLEAR = _ioc(PWMIOC_BASE, 0x0005)
+
+
+# User LED: include/nuttx/leds/userled.h
+ULEDIOC_SUPPORTED = _ioc(ULED_BASE, 0x0001)
+ULEDIOC_SETLED = _ioc(ULED_BASE, 0x0002)
+ULEDIOC_SETALL = _ioc(ULED_BASE, 0x0003)
+ULEDIOC_GETALL = _ioc(ULED_BASE, 0x0004)
+ULEDIOC_SUPEFFECT = _ioc(ULED_BASE, 0x0005)
+ULEDIOC_SETEFFECT = _ioc(ULED_BASE, 0x0006)
+
+
+# I2C: include/nuttx/i2c/i2c_master.h
+I2CIOC_TRANSFER = _ioc(I2C_BASE, 0x0001)
+I2CIOC_RESET = _ioc(I2C_BASE, 0x0002)
+
+
+# SPI: include/nuttx/spi/spi_transfer.h
+SPIIOC_TRANSFER = _ioc(SPI_BASE, 0x0001)
+
+
+__all__ = [
+    "PWMIOC_BASE",
+    "ULED_BASE",
+    "I2C_BASE",
+    "SPI_BASE",
+    "GPIO_BASE",
+    "GPIOC_WRITE",
+    "GPIOC_READ",
+    "GPIOC_PINTYPE",
+    "GPIOC_REGISTER",
+    "GPIOC_UNREGISTER",
+    "GPIOC_SETPINTYPE",
+    "GPIOC_SETDEBOUNCE",
+    "GPIOC_IRQ_SETMASK",
+    "PWMIOC_SETCHARACTERISTICS",
+    "PWMIOC_GETCHARACTERISTICS",
+    "PWMIOC_START",
+    "PWMIOC_STOP",
+    "PWMIOC_FAULTS_FETCH_AND_CLEAR",
+    "ULEDIOC_SUPPORTED",
+    "ULEDIOC_SETLED",
+    "ULEDIOC_SETALL",
+    "ULEDIOC_GETALL",
+    "ULEDIOC_SUPEFFECT",
+    "ULEDIOC_SETEFFECT",
+    "I2CIOC_TRANSFER",
+    "I2CIOC_RESET",
+    "SPIIOC_TRANSFER",
+]
