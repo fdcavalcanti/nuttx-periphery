@@ -5,7 +5,8 @@ Pure Python peripheral APIs for NuttX character devices.
 Current status:
 - GPIO support implemented first
 - User LED control support implemented
-- ioctl constants included for GPIO, PWM, UserLED, I2C, and SPI
+- PWM control support implemented
+- ioctl constants included for GPIO, PWM, UserLED
 - no custom exception classes
 
 ## Scope
@@ -38,6 +39,29 @@ with UserLED("/dev/userleds") as leds:
     print(f"current state: 0x{leds.get_all():08x}")
 ```
 
+## PWM Example
+
+```python
+from nuttx_periphery import PWM, PWMInfo
+
+with PWM("/dev/pwm0") as pwm:
+    pwm.set_characteristics(PWMInfo(frequency=1_000, duty=32768))
+    info = pwm.get_characteristics()
+    print(info)
+    pwm.start()
+    pwm.stop()
+```
+
+Optional helper for pre-filled info:
+
+```python
+from nuttx_periphery import PWM
+
+with PWM("/dev/pwm0", has_deadtime=True, has_pulsecount=True) as pwm:
+    info = pwm.new_pwm_info(frequency=1_000, duty=32768)
+    pwm.set_characteristics(info)
+```
+
 ## NuttX Requirements
 
 For GPIO:
@@ -46,8 +70,6 @@ For GPIO:
 
 For future peripheral modules:
 - PWM: `CONFIG_PWM`
-- I2C: `CONFIG_I2C_DRIVER`
-- SPI: `CONFIG_SPI_DRIVER`
 - User LED: `CONFIG_USERLED`
 
 ## Development

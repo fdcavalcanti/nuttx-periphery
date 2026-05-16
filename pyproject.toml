@@ -12,7 +12,7 @@ license = { text = "Apache-2.0" }
 authors = [
   { name = "pynuttx contributors" }
 ]
-keywords = ["nuttx", "gpio", "i2c", "spi", "pwm", "embedded"]
+keywords = ["nuttx", "gpio", "pwm", "led", "embedded"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
