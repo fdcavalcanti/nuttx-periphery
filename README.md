@@ -62,6 +62,20 @@ with PWM("/dev/pwm0", has_deadtime=True, has_pulsecount=True) as pwm:
     pwm.set_characteristics(info)
 ```
 
+## Generic read example
+
+```python
+from nuttx_periphery.device import CharacterDevice
+
+buf = bytearray(32)
+
+with CharacterDevice("/dev/random") as dev:
+    nread = dev.read(buf, len(buf))
+
+print("bytes read:", nread)
+print("data:", bytes(buf[:nread]))
+```
+
 ## NuttX Requirements
 
 For GPIO:

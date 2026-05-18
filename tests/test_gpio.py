@@ -32,6 +32,10 @@ def fake_dev(monkeypatch):
     def fake_close(fd):
         state["closed_fd"] = fd
 
+    def fake_read(fd, size):
+        state["read"] = (fd, size)
+        return b"\xAA\x55"[:size]
+
     def fake_ioctl(fd, cmd, arg=0):
         state["calls"].append((fd, cmd, arg))
 
@@ -47,6 +51,7 @@ def fake_dev(monkeypatch):
 
     monkeypatch.setattr("os.open", fake_open)
     monkeypatch.setattr("os.close", fake_close)
+    monkeypatch.setattr("os.read", fake_read)
     monkeypatch.setattr("fcntl.ioctl", fake_ioctl)
     return state
 
@@ -69,6 +74,16 @@ def test_character_device_closed_fileno_raises(fake_dev):
 
     with pytest.raises(ValueError):
         dev.fileno()
+
+
+def test_character_device_read(fake_dev):
+    dev = CharacterDevice("/dev/gpio0")
+    buf = bytearray(4)
+    nread = dev.read(buf, 2)
+
+    assert nread == 2
+    assert bytes(buf[:2]) == b"\xAA\x55"
+    assert fake_dev["read"] == (42, 2)
 
 
 def test_gpio_read_write(fake_dev):

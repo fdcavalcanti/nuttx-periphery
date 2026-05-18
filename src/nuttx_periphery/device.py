@@ -58,6 +58,24 @@ class CharacterDevice:
             raise ValueError("device is closed")
         return self._fd
 
+    def read(self, buffer: bytearray | memoryview, size: int) -> int:
+        """Read up to ``size`` bytes into ``buffer`` from this device."""
+        if not isinstance(size, int):
+            raise TypeError("size must be int")
+        if size < 0:
+            raise ValueError("size must be >= 0")
+
+        view = memoryview(buffer)
+        if view.readonly:
+            raise TypeError("buffer must be writable")
+        if size > view.nbytes:
+            raise ValueError("size cannot exceed buffer length")
+
+        data = os.read(self.fileno(), size)
+        nread = len(data)
+        view[:nread] = data
+        return nread
+
     def ioctl_raw(self, cmd: int, arg: IoctlArg = None) -> int:
         """Issue a raw ioctl call on the device descriptor."""
         if not isinstance(cmd, int):
