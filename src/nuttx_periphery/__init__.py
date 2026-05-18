@@ -9,7 +9,7 @@ if _pointer_size not in (4, 8):
 from .gpio import GPIO, GPIOPinType
 from .pwm import PWM, PWMChannel, PWMInfo
 from .userled import UserLED
-from device import CharacterDevice
+from .device import CharacterDevice
 
 __all__ = [
     "GPIO",
