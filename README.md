@@ -86,3 +86,14 @@ Run tests:
 pytest
 ```
 
+## Build wheel
+
+From the project root:
+
+```bash
+python -m pip install --upgrade build
+python -m build --wheel
+```
+
+The generated `.whl` file will be in `dist/`.
+
