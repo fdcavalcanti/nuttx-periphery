@@ -15,8 +15,6 @@ from .ioctl_consts import (
 from .utils import check_i8, check_u32, check_u8
 
 POINTER_SIZE = ctypes.sizeof(ctypes.c_void_p)
-if POINTER_SIZE not in (4, 8):
-    raise RuntimeError("Unsupported pointer size")
 
 
 @dataclass
