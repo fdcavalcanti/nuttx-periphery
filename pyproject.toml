@@ -3,14 +3,14 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pynuttx"
+name = "nuttx_periphery"
 version = "0.1.0"
 description = "Pure Python peripheral APIs for NuttX character devices"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "Apache-2.0" }
 authors = [
-  { name = "pynuttx contributors" }
+  { name = "Filipe Cavalcanti" }
 ]
 keywords = ["nuttx", "gpio", "pwm", "led", "embedded"]
 classifiers = [
