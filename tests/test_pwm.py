@@ -71,7 +71,7 @@ def test_pwm_get_characteristics_default_size(fake_pwm_dev):
 
 
 def test_pwm_get_characteristics_multichan_size(fake_pwm_dev):
-    pwm = PWM("/dev/pwm0", multichan=True, channel_count=2, has_deadtime=True)
+    pwm = PWM("/dev/pwm0", channel_count=2, has_deadtime=True)
     info = pwm.get_characteristics()
 
     assert isinstance(info, PWMInfo)
@@ -110,8 +110,8 @@ def test_pwm_info_multichan_pack_unpack():
             PWMChannel(duty=2000, channel=-1, cpol=0, dcpol=1),
         ],
     )
-    payload = info.to_bytes(multichan=True, channel_count=2)
-    unpacked = PWMInfo.from_bytes(payload, multichan=True, channel_count=2)
+    payload = info.to_bytes(channel_count=2)
+    unpacked = PWMInfo.from_bytes(payload, channel_count=2)
 
     assert unpacked.frequency == 20_000
     assert unpacked.arg == 0x44
@@ -141,11 +141,14 @@ def test_pwm_new_pwm_info_single_channel_defaults(fake_pwm_dev):
     assert info.dead_time_a == 0
     assert info.dead_time_b == 0
     assert info.count == 0
-    assert info.channels is None
+    assert info.channels is not None
+    assert len(info.channels) == 1
+    assert info.channels[0].duty == 123
+    assert info.channels[0].count == 0
 
 
 def test_pwm_new_pwm_info_multichan_defaults(fake_pwm_dev):
-    pwm = PWM("/dev/pwm0", multichan=True, channel_count=2)
+    pwm = PWM("/dev/pwm0", channel_count=2)
     info = pwm.new_pwm_info(frequency=20_000)
 
     assert isinstance(info, PWMInfo)
@@ -179,15 +182,15 @@ def test_pwm_validation(fake_pwm_dev):
         PWMInfo(frequency=1, duty=1, dead_time_a=1).to_bytes(has_deadtime=True)
     PWMInfo(frequency=1, duty=1, count=2).to_bytes()
     with pytest.raises(ValueError):
-        PWMInfo(frequency=1).to_bytes(multichan=True, channel_count=1)
-    with pytest.raises(TypeError):
-        PWM("/dev/pwm0", multichan="yes")  # type: ignore[arg-type]
-    with pytest.raises(ValueError):
         PWM("/dev/pwm0", channel_count=0)
-    with pytest.raises(ValueError):
-        PWM("/dev/pwm0", multichan=True, has_pulsecount=True)
-    with pytest.raises(ValueError):
-        PWM("/dev/pwm0").new_pwm_info(frequency=10, channels=[PWMChannel(duty=0, channel=1)])
+    pwm_channels = PWM("/dev/pwm0", channel_count=2, has_pulsecount=True)
+    assert pwm_channels.has_pulsecount is True
+    info = PWM("/dev/pwm0").new_pwm_info(
+        frequency=10,
+        channels=[PWMChannel(duty=0, channel=1)],
+    )
+    assert info.channels is not None
+    assert len(info.channels) == 1
     with pytest.raises(TypeError):
         pwm._get_charateristics("4")
     with pytest.raises(ValueError):

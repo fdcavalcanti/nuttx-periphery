@@ -38,8 +38,23 @@ def expected_single(pointer_size: int, has_deadtime: bool, has_pulsecount: bool)
         dead_time_a=11 if has_deadtime else None,
         dead_time_b=12 if has_deadtime else None,
         count=33 if has_pulsecount else None,
+        channels=[
+            PWMChannel(
+                duty=1000,
+                cpol=1,
+                dcpol=2,
+                channel=0,
+                dead_time_a=11 if has_deadtime else None,
+                dead_time_b=12 if has_deadtime else None,
+                count=33 if has_pulsecount else None,
+            )
+        ],
     )
-    return info.to_bytes(multichan=False, has_deadtime=has_deadtime, has_pulsecount=has_pulsecount)
+    return info.to_bytes(
+        channel_count=1,
+        has_deadtime=has_deadtime,
+        has_pulsecount=has_pulsecount,
+    )
 
 
 def expected_multi(pointer_size: int, has_deadtime: bool) -> bytes:
@@ -52,7 +67,7 @@ def expected_multi(pointer_size: int, has_deadtime: bool) -> bytes:
                 duty=1000,
                 cpol=1,
                 dcpol=2,
-                channel=1,
+                channel=0,
                 dead_time_a=11 if has_deadtime else None,
                 dead_time_b=12 if has_deadtime else None,
             ),
@@ -66,7 +81,7 @@ def expected_multi(pointer_size: int, has_deadtime: bool) -> bytes:
             ),
         ],
     )
-    return info.to_bytes(multichan=True, channel_count=2, has_deadtime=has_deadtime)
+    return info.to_bytes(channel_count=2, has_deadtime=has_deadtime)
 
 
 def compare_case(name: str, c_bytes: bytes, py_bytes: bytes) -> None:
@@ -86,28 +101,30 @@ def main() -> None:
 
     base_define = [f"-DPOINTER_SIZE={pointer_size}"]
 
-    c_single = build_and_run(base_define)
+    c_single = build_and_run(base_define + ["-DCHANNEL_COUNT=1"])
     compare_case(
         "single",
         c_single,
         expected_single(pointer_size, has_deadtime=False, has_pulsecount=False),
     )
 
-    c_single_dt_pc = build_and_run(base_define + ["-DHAS_DEADTIME", "-DHAS_PULSECOUNT"])
+    c_single_dt_pc = build_and_run(
+        base_define + ["-DCHANNEL_COUNT=1", "-DHAS_DEADTIME", "-DHAS_PULSECOUNT"]
+    )
     compare_case(
         "single+deadtime+pulsecount",
         c_single_dt_pc,
         expected_single(pointer_size, has_deadtime=True, has_pulsecount=True),
     )
 
-    c_multi = build_and_run(base_define + ["-DMULTICHAN"])
+    c_multi = build_and_run(base_define + ["-DCHANNEL_COUNT=2"])
     compare_case(
         "multichan",
         c_multi,
         expected_multi(pointer_size, has_deadtime=False),
     )
 
-    c_multi_dt = build_and_run(base_define + ["-DMULTICHAN", "-DHAS_DEADTIME"])
+    c_multi_dt = build_and_run(base_define + ["-DCHANNEL_COUNT=2", "-DHAS_DEADTIME"])
     compare_case(
         "multichan+deadtime",
         c_multi_dt,

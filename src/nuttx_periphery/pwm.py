@@ -37,8 +37,9 @@ class PWMChannel:
     dcpol: int = 0
     dead_time_a: int | None = None
     dead_time_b: int | None = None
+    count: int | None = None
 
-    def _pack_channel(self, *, has_deadtime: bool) -> bytes:
+    def _pack_channel(self, *, has_deadtime: bool, has_pulsecount: bool) -> bytes:
         check_u32(self.duty, "channel.duty")
         check_u8(self.cpol, "channel.cpol")
         check_u8(self.dcpol, "channel.dcpol")
@@ -53,6 +54,14 @@ class PWMChannel:
             payload.extend(struct.pack("@I", self.dead_time_a))
             payload.extend(struct.pack("@I", self.dead_time_b))
         payload.extend(struct.pack("@BBb", self.cpol, self.dcpol, self.channel))
+
+        if has_pulsecount:
+            if self.count is None:
+                raise ValueError("channel.count must be set when has_pulsecount=True")
+            check_u32(self.count, "channel.count")
+            payload.extend(b"\x00" * ((-len(payload)) % 4))
+            payload.extend(struct.pack("@I", self.count))
+
         payload.extend(b"\x00" * ((-len(payload)) % 4))
         return bytes(payload)
 
@@ -81,7 +90,7 @@ class PWMInfo:
         Requires CONFIG_PWM_PULSECOUNT:
         count (int | None, optional): Pulse count.
 
-        Requires CONFIG_PWM_MULTICHAN:
+        Requires CONFIG_PWM_NCHANNELS > 1:
         channels (list[PWMChannel] | None, optional): List of PWMChannel objects for multi-channel operation.
 
     Methods:
@@ -101,7 +110,7 @@ class PWMInfo:
                 PWMChannel(duty=50),
             ],
         )
-        pwm = PWM("/dev/pwm0", multichan=True, channel_count=2)
+        pwm = PWM("/dev/pwm0", channel_count=2)
         pwm.set_characteristics(info)
     """
     frequency: int
@@ -117,7 +126,6 @@ class PWMInfo:
     def to_bytes(
         self,
         *,
-        multichan: bool = False,
         channel_count: int | None = None,
         has_deadtime: bool = False,
         has_pulsecount: bool = False,
@@ -128,40 +136,38 @@ class PWMInfo:
 
         payload = bytearray(struct.pack("@I", self.frequency))
 
-        if multichan:
-            if has_pulsecount:
-                raise ValueError("has_pulsecount is not valid for multichannel pwm_info_s")
-            if self.channels is None or len(self.channels) == 0:
-                raise ValueError("channels must be provided for multichannel pwm_info_s")
-            if channel_count is None:
-                channel_count = len(self.channels)
-            if channel_count <= 0:
-                raise ValueError("channel_count must be > 0")
-            if len(self.channels) != channel_count:
-                raise ValueError("len(channels) must match channel_count")
-            for idx, channel in enumerate(self.channels):
-                if not isinstance(channel, PWMChannel):
-                    raise TypeError(f"channels[{idx}] must be PWMChannel")
-                payload.extend(channel._pack_channel(has_deadtime=has_deadtime))
+        # New NuttX layout always uses channels[] with CONFIG_PWM_NCHANNELS.
+        if self.channels is None:
+            channels = [
+                PWMChannel(
+                    duty=self.duty,
+                    cpol=self.cpol,
+                    dcpol=self.dcpol,
+                    channel=0,
+                    dead_time_a=self.dead_time_a,
+                    dead_time_b=self.dead_time_b,
+                    count=self.count,
+                )
+            ]
         else:
-            check_u32(self.duty, "duty")
-            check_u8(self.cpol, "cpol")
-            check_u8(self.dcpol, "dcpol")
-            payload.extend(struct.pack("@I", self.duty))
-            if has_deadtime:
-                if self.dead_time_a is None or self.dead_time_b is None:
-                    raise ValueError("dead_time_a and dead_time_b must both be set when has_deadtime=True")
-                check_u32(self.dead_time_a, "dead_time_a")
-                check_u32(self.dead_time_b, "dead_time_b")
-                payload.extend(struct.pack("@I", self.dead_time_a))
-                payload.extend(struct.pack("@I", self.dead_time_b))
-            if has_pulsecount:
-                if self.count is None:
-                    raise ValueError("count must be set when has_pulsecount=True")
-                check_u32(self.count, "count")
-                payload.extend(struct.pack("@I", self.count))
-            payload.extend(struct.pack("@B", self.cpol))
-            payload.extend(struct.pack("@B", self.dcpol))
+            channels = self.channels
+
+        if channel_count is None:
+            channel_count = len(channels)
+        if channel_count <= 0:
+            raise ValueError("channel_count must be > 0")
+        if len(channels) != channel_count:
+            raise ValueError("len(channels) must match channel_count")
+
+        for idx, channel in enumerate(channels):
+            if not isinstance(channel, PWMChannel):
+                raise TypeError(f"channels[{idx}] must be PWMChannel")
+            payload.extend(
+                channel._pack_channel(
+                    has_deadtime=has_deadtime,
+                    has_pulsecount=has_pulsecount,
+                )
+            )
 
         payload.extend(b"\x00" * ((-len(payload)) % POINTER_SIZE))
         if POINTER_SIZE == 4:
@@ -178,7 +184,6 @@ class PWMInfo:
         cls,
         data: bytes | bytearray | memoryview,
         *,
-        multichan: bool = False,
         channel_count: int | None = None,
         has_deadtime: bool = False,
         has_pulsecount: bool = False,
@@ -193,57 +198,33 @@ class PWMInfo:
         frequency = struct.unpack_from("@I", buf, off)[0]
         off += 4
 
-        if multichan:
-            if has_pulsecount:
-                raise ValueError("has_pulsecount is not valid for multichannel pwm_info_s")
-            if channel_count is None or channel_count <= 0:
-                raise ValueError("channel_count must be provided for multichannel pwm_info_s")
-            channels: list[PWMChannel] = []
-            for _ in range(channel_count):
-                channel, off = _unpack_channel(buf, off, has_deadtime=has_deadtime)
-                channels.append(channel)
-            off += (-off) % POINTER_SIZE
-            _require_len(buf, off + POINTER_SIZE, "data buffer too small for pwm_info_s.arg")
-            arg = struct.unpack_from("@I" if POINTER_SIZE == 4 else "@Q", buf, off)[0]
-            return cls(frequency=frequency, arg=arg, channels=channels)
+        if channel_count is None or channel_count <= 0:
+            channel_count = 1
 
-        _require_len(buf, off + 4 + 2, "data buffer too small for single-channel pwm_info_s")
-        duty = struct.unpack_from("@I", buf, off)[0]
-        off += 4
-
-        dead_time_a = None
-        dead_time_b = None
-        if has_deadtime:
-            _require_len(buf, off + 8, "data buffer too small for deadtime fields")
-            dead_time_a = struct.unpack_from("@I", buf, off)[0]
-            off += 4
-            dead_time_b = struct.unpack_from("@I", buf, off)[0]
-            off += 4
-
-        count = None
-        if has_pulsecount:
-            _require_len(buf, off + 4, "data buffer too small for pulse count field")
-            count = struct.unpack_from("@I", buf, off)[0]
-            off += 4
-
-        _require_len(buf, off + 2, "data buffer too small for polarity fields")
-        cpol = struct.unpack_from("@B", buf, off)[0]
-        off += 1
-        dcpol = struct.unpack_from("@B", buf, off)[0]
-        off += 1
-
+        channels: list[PWMChannel] = []
+        for _ in range(channel_count):
+            channel, off = _unpack_channel(
+                buf,
+                off,
+                has_deadtime=has_deadtime,
+                has_pulsecount=has_pulsecount,
+            )
+            channels.append(channel)
         off += (-off) % POINTER_SIZE
         _require_len(buf, off + POINTER_SIZE, "data buffer too small for pwm_info_s.arg")
         arg = struct.unpack_from("@I" if POINTER_SIZE == 4 else "@Q", buf, off)[0]
+
+        channel0 = channels[0]
         return cls(
             frequency=frequency,
-            duty=duty,
-            cpol=cpol,
-            dcpol=dcpol,
+            duty=channel0.duty,
+            cpol=channel0.cpol,
+            dcpol=channel0.dcpol,
             arg=arg,
-            dead_time_a=dead_time_a,
-            dead_time_b=dead_time_b,
-            count=count,
+            dead_time_a=channel0.dead_time_a,
+            dead_time_b=channel0.dead_time_b,
+            count=channel0.count,
+            channels=channels,
         )
 
 
@@ -253,14 +234,11 @@ class PWM(CharacterDevice):
         path: str,
         nonblock: bool = False,
         *,
-        multichan: bool = False,
         channel_count: int | None = None,
         has_deadtime: bool = False,
         has_pulsecount: bool = False,
 
     ) -> None:
-        if not isinstance(multichan, bool):
-            raise TypeError("multichan must be bool")
         if channel_count is not None and not isinstance(channel_count, int):
             raise TypeError("channel_count must be int or None")
         if channel_count is not None and channel_count <= 0:
@@ -269,11 +247,8 @@ class PWM(CharacterDevice):
             raise TypeError("has_deadtime must be bool")
         if not isinstance(has_pulsecount, bool):
             raise TypeError("has_pulsecount must be bool")
-        if multichan and has_pulsecount:
-            raise ValueError("has_pulsecount is not valid for multichannel pwm_info_s")
 
-        self.multichan = multichan
-        self.channel_count = channel_count
+        self.channel_count = 1 if channel_count is None else channel_count
         self.has_deadtime = has_deadtime
         self.has_pulsecount = has_pulsecount
         super().__init__(path=path, nonblock=nonblock)
@@ -292,27 +267,34 @@ class PWM(CharacterDevice):
         channels: list[PWMChannel] | None = None,
     ) -> PWMInfo:
         """Create a ``PWMInfo`` pre-filled from this PWM configuration."""
-        if self.multichan:
-            if channels is None and self.channel_count is not None:
+        if channels is None:
+            if self.channel_count > 1:
                 channels = [
                     PWMChannel(duty=0, channel=index + 1)
                     for index in range(self.channel_count)
                 ]
-            if channels is not None and self.channel_count is not None and len(channels) != self.channel_count:
-                raise ValueError("len(channels) must match PWM.channel_count")
-            return PWMInfo(frequency=frequency, arg=arg, channels=channels)
+            else:
+                if self.has_deadtime:
+                    if dead_time_a is None:
+                        dead_time_a = 0
+                    if dead_time_b is None:
+                        dead_time_b = 0
+                if self.has_pulsecount and count is None:
+                    count = 0
+                channels = [
+                    PWMChannel(
+                        duty=duty,
+                        channel=0,
+                        cpol=cpol,
+                        dcpol=dcpol,
+                        dead_time_a=dead_time_a,
+                        dead_time_b=dead_time_b,
+                        count=count,
+                    )
+                ]
 
-        if channels is not None:
-            raise ValueError("channels is only valid when PWM.multichan=True")
-
-        if self.has_deadtime:
-            if dead_time_a is None:
-                dead_time_a = 0
-            if dead_time_b is None:
-                dead_time_b = 0
-
-        if self.has_pulsecount and count is None:
-            count = 0
+        if len(channels) != self.channel_count:
+            raise ValueError("len(channels) must match PWM.channel_count")
 
         return PWMInfo(
             frequency=frequency,
@@ -323,6 +305,7 @@ class PWM(CharacterDevice):
             dead_time_a=dead_time_a,
             dead_time_b=dead_time_b,
             count=count,
+            channels=channels,
         )
 
     def set_characteristics(
@@ -331,7 +314,6 @@ class PWM(CharacterDevice):
     ) -> None:
         if isinstance(data, PWMInfo):
             data = data.to_bytes(
-                multichan=self.multichan,
                 channel_count=self.channel_count,
                 has_deadtime=self.has_deadtime,
                 has_pulsecount=self.has_pulsecount,
@@ -357,7 +339,6 @@ class PWM(CharacterDevice):
         """High-level read of characteristics as a ``PWMInfo`` object."""
         if size is None:
             size = _pwm_info_size(
-                multichan=self.multichan,
                 channel_count=self.channel_count,
                 has_deadtime=self.has_deadtime,
                 has_pulsecount=self.has_pulsecount,
@@ -366,7 +347,6 @@ class PWM(CharacterDevice):
         data = self._get_charateristics(size)
         return PWMInfo.from_bytes(
             data,
-            multichan=self.multichan,
             channel_count=self.channel_count,
             has_deadtime=self.has_deadtime,
             has_pulsecount=self.has_pulsecount,
@@ -397,10 +377,16 @@ def _require_len(buf: bytes, needed: int, msg: str) -> None:
 
 
 def _pack_channel(channel: PWMChannel, *, has_deadtime: bool) -> bytes:
-    return channel._pack_channel(has_deadtime=has_deadtime)
+    return channel._pack_channel(has_deadtime=has_deadtime, has_pulsecount=False)
 
 
-def _unpack_channel(buf: bytes, off: int, *, has_deadtime: bool) -> tuple[PWMChannel, int]:
+def _unpack_channel(
+    buf: bytes,
+    off: int,
+    *,
+    has_deadtime: bool,
+    has_pulsecount: bool,
+) -> tuple[PWMChannel, int]:
     _require_len(buf, off + 4, "data buffer too small for channel duty")
     duty = struct.unpack_from("@I", buf, off)[0]
     off += 4
@@ -417,6 +403,13 @@ def _unpack_channel(buf: bytes, off: int, *, has_deadtime: bool) -> tuple[PWMCha
     _require_len(buf, off + 3, "data buffer too small for channel polarity/index")
     cpol, dcpol, channel = struct.unpack_from("@BBb", buf, off)
     off += 3
+    count = None
+    if has_pulsecount:
+        off += (-off) % 4
+        _require_len(buf, off + 4, "data buffer too small for channel pulse count")
+        count = struct.unpack_from("@I", buf, off)[0]
+        off += 4
+
     off += (-off) % 4
 
     return (
@@ -427,6 +420,7 @@ def _unpack_channel(buf: bytes, off: int, *, has_deadtime: bool) -> tuple[PWMCha
             dcpol=dcpol,
             dead_time_a=dead_time_a,
             dead_time_b=dead_time_b,
+            count=count,
         ),
         off,
     )
@@ -434,32 +428,24 @@ def _unpack_channel(buf: bytes, off: int, *, has_deadtime: bool) -> tuple[PWMCha
 
 def _pwm_info_size(
     *,
-    multichan: bool,
     channel_count: int | None,
     has_deadtime: bool,
     has_pulsecount: bool,
 ) -> int:
     size = 4  # frequency
 
-    if multichan:
-        if has_pulsecount:
-            raise ValueError("has_pulsecount is not valid for multichannel pwm_info_s")
-        if channel_count is None or channel_count <= 0:
-            raise ValueError("channel_count must be provided for multichannel pwm_info_s")
+    if channel_count is None or channel_count <= 0:
+        channel_count = 1
 
-        chan_size = 4  # duty
-        if has_deadtime:
-            chan_size += 8
-        chan_size += 3  # cpol + dcpol + channel
+    chan_size = 4  # duty
+    if has_deadtime:
+        chan_size += 8
+    chan_size += 3  # cpol + dcpol + channel
+    if has_pulsecount:
         chan_size += (-chan_size) % 4
-        size += chan_size * channel_count
-    else:
-        size += 4  # duty
-        if has_deadtime:
-            size += 8
-        if has_pulsecount:
-            size += 4
-        size += 2  # cpol + dcpol
+        chan_size += 4  # count
+    chan_size += (-chan_size) % 4
+    size += chan_size * channel_count
 
     size += (-size) % POINTER_SIZE
     size += POINTER_SIZE  # arg pointer

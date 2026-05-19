@@ -30,25 +30,15 @@ struct pwm_chan_s
   uint8_t cpol;
   uint8_t dcpol;
   int8_t channel;
+#ifdef HAS_PULSECOUNT
+  uint32_t count;
+#endif
 };
 
 struct pwm_info_s
 {
   uint32_t frequency;
-#ifdef MULTICHAN
   struct pwm_chan_s channels[CHANNEL_COUNT];
-#else
-  ub16_t duty;
-#ifdef HAS_DEADTIME
-  ub16_t dead_time_a;
-  ub16_t dead_time_b;
-#endif
-#ifdef HAS_PULSECOUNT
-  uint32_t count;
-#endif
-  uint8_t cpol;
-  uint8_t dcpol;
-#endif
   ptr_t arg;
 };
 
@@ -59,16 +49,19 @@ int main(void)
 
   info.frequency = 20000;
 
-#ifdef MULTICHAN
   info.channels[0].duty = 1000;
   info.channels[0].cpol = 1;
   info.channels[0].dcpol = 2;
-  info.channels[0].channel = 1;
+  info.channels[0].channel = 0;
 #ifdef HAS_DEADTIME
   info.channels[0].dead_time_a = 11;
   info.channels[0].dead_time_b = 12;
 #endif
+#ifdef HAS_PULSECOUNT
+  info.channels[0].count = 33;
+#endif
 
+#if CHANNEL_COUNT > 1
   info.channels[1].duty = 2000;
   info.channels[1].cpol = 0;
   info.channels[1].dcpol = 1;
@@ -77,16 +70,8 @@ int main(void)
   info.channels[1].dead_time_a = 21;
   info.channels[1].dead_time_b = 22;
 #endif
-#else
-  info.duty = 1000;
-  info.cpol = 1;
-  info.dcpol = 2;
-#ifdef HAS_DEADTIME
-  info.dead_time_a = 11;
-  info.dead_time_b = 12;
-#endif
 #ifdef HAS_PULSECOUNT
-  info.count = 33;
+  info.channels[1].count = 44;
 #endif
 #endif
 
