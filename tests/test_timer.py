@@ -19,7 +19,12 @@ from nuttx_periphery.ioctl_consts import (
     TCIOC_TICK_MAXTIMEOUT,
     TCIOC_TICK_SETTIMEOUT,
 )
-from nuttx_periphery.timer import Timer, TimerStatus
+from nuttx_periphery.timer import (
+    SIGEV_SIGNAL,
+    Timer,
+    TimerNotify,
+    TimerStatus,
+)
 
 
 @pytest.fixture()
@@ -128,14 +133,47 @@ def test_timer_is_active(fake_timer_dev):
     assert tmr.is_active() is False
 
 
-def test_timer_set_notification_raw(fake_timer_dev):
+def test_timer_set_notification_with_bytes(fake_timer_dev):
     tmr = Timer("/dev/timer0")
-    payload = b"\x01" * 16
-    tmr.set_notification_raw(payload)
+    payload = b"\x01" * 32
+    tmr.set_notification(payload)
 
     sent = [c for c in fake_timer_dev["calls"] if c[1] == TCIOC_NOTIFICATION]
     assert len(sent) == 1
     assert sent[0][2] == payload
+
+
+def test_timer_set_notification_with_struct(fake_timer_dev):
+    tmr = Timer("/dev/timer0")
+    notify = TimerNotify(pid=4321, signo=32, periodic=True)
+    tmr.set_notification(notify)
+
+    sent = [c for c in fake_timer_dev["calls"] if c[1] == TCIOC_NOTIFICATION]
+    assert len(sent) == 1
+    assert isinstance(sent[0][2], bytes)
+    assert TimerNotify.from_bytes(sent[0][2]) == notify
+
+
+def test_timer_notify_signal_uses_current_pid(fake_timer_dev, monkeypatch):
+    monkeypatch.setattr("os.getpid", lambda: 9999)
+    tmr = Timer("/dev/timer0")
+    tmr.notify_signal(signo=33, periodic=False)
+
+    sent = [c for c in fake_timer_dev["calls"] if c[1] == TCIOC_NOTIFICATION]
+    assert len(sent) == 1
+    decoded = TimerNotify.from_bytes(sent[0][2])
+    assert decoded.pid == 9999
+    assert decoded.signo == 33
+    assert decoded.periodic is False
+    assert decoded.notify == SIGEV_SIGNAL
+
+
+def test_timer_notify_pack_unpack():
+    notify = TimerNotify(
+        pid=1234, signo=34, periodic=True, sigval_int=0xABCD, tid=2
+    )
+    payload = notify.to_bytes()
+    assert TimerNotify.from_bytes(payload) == notify
 
 
 def test_timer_status_pack_unpack():
@@ -169,4 +207,18 @@ def test_timer_validation(fake_timer_dev):
     with pytest.raises(ValueError):
         tmr.set_timeout_ticks(-1)
     with pytest.raises(TypeError):
-        tmr.set_notification_raw(0)
+        tmr.set_notification(0)
+    with pytest.raises(TypeError):
+        tmr.notify_signal("32")
+    with pytest.raises(ValueError):
+        tmr.notify_signal(0)
+    with pytest.raises(TypeError):
+        TimerNotify(pid="x", signo=32).to_bytes()
+    with pytest.raises(TypeError):
+        TimerNotify(pid=1, signo="x").to_bytes()
+    with pytest.raises(TypeError):
+        TimerNotify(pid=1, signo=32, periodic=1).to_bytes()
+    with pytest.raises(TypeError):
+        TimerNotify.from_bytes(123)
+    with pytest.raises(ValueError):
+        TimerNotify.from_bytes(b"\x00" * 4)
