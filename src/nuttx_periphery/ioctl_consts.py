@@ -10,6 +10,7 @@ def _ioc(ioctl_type: int, nr: int) -> int:
 
 # Base values from NuttX include/nuttx/fs/ioctl.h
 PWMIOC_BASE = 0x0C00
+TC_BASE = 0x1600
 ULED_BASE = 0x1D00
 I2C_BASE = 0x2100
 SPI_BASE = 0x2200
@@ -53,8 +54,25 @@ I2CIOC_RESET = _ioc(I2C_BASE, 0x0002)
 SPIIOC_TRANSFER = _ioc(SPI_BASE, 0x0001)
 
 
+# Timer: include/nuttx/timers/timer.h
+TCIOC_START = _ioc(TC_BASE, 0x0001)
+TCIOC_STOP = _ioc(TC_BASE, 0x0002)
+TCIOC_GETSTATUS = _ioc(TC_BASE, 0x0003)
+TCIOC_SETTIMEOUT = _ioc(TC_BASE, 0x0004)
+TCIOC_NOTIFICATION = _ioc(TC_BASE, 0x0005)
+TCIOC_MAXTIMEOUT = _ioc(TC_BASE, 0x0006)
+TCIOC_TICK_GETSTATUS = _ioc(TC_BASE, 0x0007)
+TCIOC_TICK_SETTIMEOUT = _ioc(TC_BASE, 0x0008)
+TCIOC_TICK_MAXTIMEOUT = _ioc(TC_BASE, 0x0009)
+
+# Timer status flags: include/nuttx/timers/timer.h
+TCFLAGS_ACTIVE = 1 << 0
+TCFLAGS_HANDLER = 1 << 1
+
+
 __all__ = [
     "PWMIOC_BASE",
+    "TC_BASE",
     "ULED_BASE",
     "I2C_BASE",
     "SPI_BASE",
@@ -81,4 +99,15 @@ __all__ = [
     "I2CIOC_TRANSFER",
     "I2CIOC_RESET",
     "SPIIOC_TRANSFER",
+    "TCIOC_START",
+    "TCIOC_STOP",
+    "TCIOC_GETSTATUS",
+    "TCIOC_SETTIMEOUT",
+    "TCIOC_NOTIFICATION",
+    "TCIOC_MAXTIMEOUT",
+    "TCIOC_TICK_GETSTATUS",
+    "TCIOC_TICK_SETTIMEOUT",
+    "TCIOC_TICK_MAXTIMEOUT",
+    "TCFLAGS_ACTIVE",
+    "TCFLAGS_HANDLER",
 ]

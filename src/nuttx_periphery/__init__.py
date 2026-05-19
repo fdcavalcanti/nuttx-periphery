@@ -8,6 +8,7 @@ if _pointer_size not in (4, 8):
 
 from .gpio import GPIO, GPIOPinType
 from .pwm import PWM, PWMChannel, PWMInfo
+from .timer import Timer, TimerStatus
 from .userled import UserLED
 from .device import CharacterDevice
 
@@ -18,5 +19,7 @@ __all__ = [
     "PWM",
     "PWMInfo",
     "PWMChannel",
+    "Timer",
+    "TimerStatus",
     "CharacterDevice",
 ]
