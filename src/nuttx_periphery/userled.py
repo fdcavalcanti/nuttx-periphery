@@ -6,7 +6,12 @@ import struct
 from array import array
 
 from .device import CharacterDevice
-from .ioctl_consts import ULEDIOC_GETALL, ULEDIOC_SETALL, ULEDIOC_SETLED, ULEDIOC_SUPPORTED
+from .ioctl_consts import (
+    ULEDIOC_GETALL,
+    ULEDIOC_SETALL,
+    ULEDIOC_SETLED,
+    ULEDIOC_SUPPORTED,
+)
 
 
 class UserLED(CharacterDevice):

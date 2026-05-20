@@ -12,7 +12,7 @@ from .ioctl_consts import (
     PWMIOC_START,
     PWMIOC_STOP,
 )
-from .utils import check_i8, check_u32, check_u8
+from .utils import check_i8, check_u8, check_u32
 
 POINTER_SIZE = ctypes.sizeof(ctypes.c_void_p)
 
@@ -20,7 +20,7 @@ POINTER_SIZE = ctypes.sizeof(ctypes.c_void_p)
 @dataclass
 class PWMChannel:
     """NuttX PWM channel structure.
-    
+
     Attributes:
     - duty: Duty of the pulse train, "1"-to-"0" duration.
     - channel: Channel number.
@@ -31,6 +31,7 @@ class PWMChannel:
     - dead_time_a: Dead time value for main output.
     - dead_time_b: Dead time value for complementary output.
     """
+
     duty: int
     channel: int
     cpol: int = 0
@@ -48,7 +49,10 @@ class PWMChannel:
         payload = bytearray(struct.pack("@I", self.duty))
         if has_deadtime:
             if self.dead_time_a is None or self.dead_time_b is None:
-                raise ValueError("channel.dead_time_a and channel.dead_time_b must both be set when has_deadtime=True")
+                raise ValueError(
+                    "channel.dead_time_a and channel.dead_time_b must both be set "
+                    "when has_deadtime=True"
+                )
             check_u32(self.dead_time_a, "channel.dead_time_a")
             check_u32(self.dead_time_b, "channel.dead_time_b")
             payload.extend(struct.pack("@I", self.dead_time_a))
@@ -71,17 +75,18 @@ class PWMInfo:
     """
     NuttX PWM information structure.
 
-    This dataclass represents the arguments passed to or returned from the NuttX PWM device
-    for configuration and querying of PWM timing properties, output polarity, deadtime, and
-    extra arguments. It is intended to serialize to and from the C structure expected by
-    the underlying NuttX kernel driver.
+    This dataclass represents the arguments passed to or returned from the NuttX
+    PWM device for configuration and querying of PWM timing properties, output
+    polarity, deadtime, and extra arguments. It is intended to serialize to and
+    from the C structure expected by the underlying NuttX kernel driver.
 
     Attributes:
         frequency (int): Output frequency of the PWM signal, in Hertz.
         duty (int, optional): Duty cycle value for single channel mode.
         cpol (int, optional): Polarity for main output (0=normal, 1=inverted).
         dcpol (int, optional): Polarity for disabled channel output.
-        arg (int, optional): Opaque field for board-specific arguments (used as pointer or integer).
+        arg (int, optional): Opaque field for board-specific arguments (used as
+                             pointer or integer).
 
         Requires CONFIG_PWM_DEADTIME:
         dead_time_a (int | None, optional): Dead time for main output.
@@ -91,10 +96,12 @@ class PWMInfo:
         count (int | None, optional): Pulse count.
 
         Requires CONFIG_PWM_NCHANNELS > 1:
-        channels (list[PWMChannel] | None, optional): List of PWMChannel objects for multi-channel operation.
+        channels (list[PWMChannel] | None, optional): List of PWMChannel objects for
+                                                      multi-channel operation.
 
     Methods:
-        to_bytes(...): Serialize this structure to the binary format expected by the kernel driver.
+        to_bytes(...): Serialize this structure to the binary format expected by the
+                       kernel driver.
         from_bytes(...): Construct a PWMInfo from bytes returned by the driver.
 
     Typical usage:
@@ -113,6 +120,7 @@ class PWMInfo:
         pwm = PWM("/dev/pwm0", channel_count=2)
         pwm.set_characteristics(info)
     """
+
     frequency: int
     duty: int = 0
     cpol: int = 0
@@ -192,7 +200,9 @@ class PWMInfo:
             raise TypeError("data must be bytes, bytearray, or memoryview")
 
         buf = bytes(data)
-        _require_len(buf, 4 + POINTER_SIZE, "data buffer too small for pwm_info_s header")
+        _require_len(
+            buf, 4 + POINTER_SIZE, "data buffer too small for pwm_info_s header"
+        )
 
         off = 0
         frequency = struct.unpack_from("@I", buf, off)[0]
@@ -211,7 +221,9 @@ class PWMInfo:
             )
             channels.append(channel)
         off += (-off) % POINTER_SIZE
-        _require_len(buf, off + POINTER_SIZE, "data buffer too small for pwm_info_s.arg")
+        _require_len(
+            buf, off + POINTER_SIZE, "data buffer too small for pwm_info_s.arg"
+        )
         arg = struct.unpack_from("@I" if POINTER_SIZE == 4 else "@Q", buf, off)[0]
 
         channel0 = channels[0]
@@ -237,7 +249,6 @@ class PWM(CharacterDevice):
         channel_count: int | None = None,
         has_deadtime: bool = False,
         has_pulsecount: bool = False,
-
     ) -> None:
         if channel_count is not None and not isinstance(channel_count, int):
             raise TypeError("channel_count must be int or None")
@@ -450,5 +461,6 @@ def _pwm_info_size(
     size += (-size) % POINTER_SIZE
     size += POINTER_SIZE  # arg pointer
     return size
+
 
 __all__ = ["PWM", "PWMInfo", "PWMChannel"]

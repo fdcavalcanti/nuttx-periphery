@@ -2,15 +2,16 @@
 
 import ctypes
 
-_pointer_size = ctypes.sizeof(ctypes.c_void_p)
-if _pointer_size not in (4, 8):
-    raise RuntimeError("Unsupported pointer size")
-
+from .device import CharacterDevice
 from .gpio import GPIO, GPIOPinType
 from .pwm import PWM, PWMChannel, PWMInfo
 from .timer import Timer, TimerNotify, TimerStatus
 from .userled import UserLED
-from .device import CharacterDevice
+
+_pointer_size = ctypes.sizeof(ctypes.c_void_p)
+if _pointer_size not in (4, 8):
+    raise RuntimeError("Unsupported pointer size")
+
 
 __all__ = [
     "GPIO",

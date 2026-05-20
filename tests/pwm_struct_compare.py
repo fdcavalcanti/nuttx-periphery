@@ -5,29 +5,36 @@ from __future__ import annotations
 
 import ctypes
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
-
 from nuttx_periphery.pwm import PWMChannel, PWMInfo
+
+HERE = Path(__file__).resolve().parent
 
 
 def build_and_run(defines: list[str]) -> bytes:
-    src = ROOT / "tests" / "extra" / "pwm_struct_probe.c"
+    src = HERE / "pwm_struct_probe.c"
     with tempfile.TemporaryDirectory() as tmpdir:
         bin_path = Path(tmpdir) / "pwm_probe"
-        cmd = ["gcc", "-std=c11", "-Wall", "-Wextra", "-O0", str(src), "-o", str(bin_path)] + defines
+        cmd = [
+            "gcc",
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-O0",
+            str(src),
+            "-o",
+            str(bin_path),
+        ] + defines
         subprocess.run(cmd, check=True, capture_output=True)
         result = subprocess.run([str(bin_path)], check=True, capture_output=True)
         return result.stdout
 
 
-def expected_single(pointer_size: int, has_deadtime: bool, has_pulsecount: bool) -> bytes:
+def expected_single(
+    pointer_size: int, has_deadtime: bool, has_pulsecount: bool
+) -> bytes:
     arg = 0x1122334455667788 if pointer_size == 8 else 0x55667788
     info = PWMInfo(
         frequency=20000,

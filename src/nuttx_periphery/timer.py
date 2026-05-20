@@ -81,6 +81,7 @@ class TimerStatus:
         timeout: Configured timer period.
         timeleft: Time remaining until next expiration.
     """
+
     flags: int
     timeout: int
     timeleft: int
@@ -124,6 +125,7 @@ class TimerNotify:
         sigval_int: Integer payload delivered with the signal (sigval.sival_int).
         tid: Target thread id when notify == SIGEV_THREAD_ID.
     """
+
     pid: int
     signo: int
     periodic: bool = True

@@ -105,7 +105,11 @@ def test_gpio_pin_type_get_set(fake_dev):
     gpio.set_pin_type(GPIOPinType.GPIO_INTERRUPT_RISING_PIN)
     gpio.set_pin_type(3)
 
-    assert (42, GPIOC_SETPINTYPE, int(GPIOPinType.GPIO_INTERRUPT_RISING_PIN)) in fake_dev["calls"]
+    assert (
+        42,
+        GPIOC_SETPINTYPE,
+        int(GPIOPinType.GPIO_INTERRUPT_RISING_PIN),
+    ) in fake_dev["calls"]
     assert (42, GPIOC_SETPINTYPE, 3) in fake_dev["calls"]
 
 

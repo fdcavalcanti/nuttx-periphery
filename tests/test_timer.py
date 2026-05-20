@@ -19,12 +19,7 @@ from nuttx_periphery.ioctl_consts import (
     TCIOC_TICK_MAXTIMEOUT,
     TCIOC_TICK_SETTIMEOUT,
 )
-from nuttx_periphery.timer import (
-    SIGEV_SIGNAL,
-    Timer,
-    TimerNotify,
-    TimerStatus,
-)
+from nuttx_periphery.timer import SIGEV_SIGNAL, Timer, TimerNotify, TimerStatus
 
 
 @pytest.fixture()
@@ -169,9 +164,7 @@ def test_timer_notify_signal_uses_current_pid(fake_timer_dev, monkeypatch):
 
 
 def test_timer_notify_pack_unpack():
-    notify = TimerNotify(
-        pid=1234, signo=34, periodic=True, sigval_int=0xABCD, tid=2
-    )
+    notify = TimerNotify(pid=1234, signo=34, periodic=True, sigval_int=0xABCD, tid=2)
     payload = notify.to_bytes()
     assert TimerNotify.from_bytes(payload) == notify
 

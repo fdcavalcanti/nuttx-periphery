@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from nuttx_periphery.ioctl_consts import ULEDIOC_GETALL, ULEDIOC_SETALL, ULEDIOC_SETLED, ULEDIOC_SUPPORTED
+from nuttx_periphery.ioctl_consts import (
+    ULEDIOC_GETALL,
+    ULEDIOC_SETALL,
+    ULEDIOC_SETLED,
+    ULEDIOC_SUPPORTED,
+)
 from nuttx_periphery.userled import UserLED
 
 

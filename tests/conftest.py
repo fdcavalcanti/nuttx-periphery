@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
-import sys
 
 import pytest
-
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
+# Propagate src/ to PYTHONPATH so spawned subprocesses can import the package.
+# In-process imports are handled via [tool.pytest.ini_options] pythonpath.
+_existing = os.environ.get("PYTHONPATH", "")
+_parts = _existing.split(os.pathsep) if _existing else []
+if str(SRC) not in _parts:
+    os.environ["PYTHONPATH"] = (
+        f"{SRC}{os.pathsep}{_existing}" if _existing else str(SRC)
+    )
 
 
 @pytest.fixture()

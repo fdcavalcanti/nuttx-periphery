@@ -12,12 +12,12 @@ import pytest
 
 @pytest.mark.skipif(shutil.which("gcc") is None, reason="gcc is required")
 def test_pwm_struct_binary_compatibility() -> None:
-    root = Path(__file__).resolve().parents[1]
-    script = root / "tests" / "extra" /"pwm_struct_compare.py"
+    here = Path(__file__).resolve().parent
+    script = here / "pwm_struct_compare.py"
 
     result = subprocess.run(
         [sys.executable, str(script)],
-        cwd=str(root),
+        cwd=str(here.parent),
         capture_output=True,
         text=True,
     )
