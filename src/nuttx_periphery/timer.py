@@ -185,7 +185,7 @@ class Timer(CharacterDevice):
 
     def get_status_us(self) -> TimerStatus:
         """Read current timer status with time values in microseconds."""
-        return self._read_status(TCIOC_GETSTATUS)
+        return self.read_status(TCIOC_GETSTATUS)
 
     def max_timeout_us(self) -> int:
         """Read the maximum supported timeout in microseconds."""
@@ -198,7 +198,7 @@ class Timer(CharacterDevice):
 
     def get_status_ticks(self) -> TimerStatus:
         """Read current timer status with time values in ticks."""
-        return self._read_status(TCIOC_TICK_GETSTATUS)
+        return self.read_status(TCIOC_TICK_GETSTATUS)
 
     def max_timeout_ticks(self) -> int:
         """Read the maximum supported timeout in ticks."""
@@ -249,7 +249,7 @@ class Timer(CharacterDevice):
             )
         )
 
-    def _read_status(self, cmd: int) -> TimerStatus:
+    def read_status(self, cmd: int) -> TimerStatus:
         buf = bytearray(_STATUS_SIZE)
         self.ioctl_raw(cmd, buf)
         return TimerStatus.from_bytes(buf)

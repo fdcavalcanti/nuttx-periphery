@@ -90,6 +90,29 @@ def test_timer_set_timeout_ticks(fake_timer_dev):
     assert (55, TCIOC_TICK_SETTIMEOUT, 123) in fake_timer_dev["calls"]
 
 
+def test_timer_read_status_us(fake_timer_dev):
+    tmr = Timer("/dev/timer0")
+    status = tmr.read_status(TCIOC_GETSTATUS)
+
+    assert isinstance(status, TimerStatus)
+    assert status.flags == TCFLAGS_ACTIVE | TCFLAGS_HANDLER
+    assert status.timeout == 1_000_000
+    assert status.timeleft == 250_000
+    assert status.active is True
+    assert status.has_handler is True
+    assert (55, TCIOC_GETSTATUS) in {(c[0], c[1]) for c in fake_timer_dev["calls"]}
+
+
+def test_timer_read_status_ticks(fake_timer_dev):
+    tmr = Timer("/dev/timer0")
+    status = tmr.read_status(TCIOC_TICK_GETSTATUS)
+
+    assert status.flags == TCFLAGS_ACTIVE
+    assert status.timeout == 1000
+    assert status.timeleft == 250
+    assert (55, TCIOC_TICK_GETSTATUS) in {(c[0], c[1]) for c in fake_timer_dev["calls"]}
+
+
 def test_timer_get_status_us(fake_timer_dev):
     tmr = Timer("/dev/timer0")
     status = tmr.get_status_us()
