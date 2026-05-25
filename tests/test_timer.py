@@ -11,6 +11,7 @@ from nuttx_periphery.ioctl_consts import (
     TCFLAGS_HANDLER,
     TCIOC_GETSTATUS,
     TCIOC_MAXTIMEOUT,
+    TCIOC_NOTIFICATION,
     TCIOC_SETTIMEOUT,
     TCIOC_START,
     TCIOC_STOP,
@@ -18,7 +19,7 @@ from nuttx_periphery.ioctl_consts import (
     TCIOC_TICK_MAXTIMEOUT,
     TCIOC_TICK_SETTIMEOUT,
 )
-from nuttx_periphery.timer import Timer, TimerStatus
+from nuttx_periphery.timer import Timer, TimerStatus, pack_timer_notify
 
 
 @pytest.fixture()
@@ -165,6 +166,55 @@ def test_timer_status_from_bytes_validation():
         TimerStatus.from_bytes(123)
     with pytest.raises(ValueError):
         TimerStatus.from_bytes(b"\x00" * 4)
+
+
+def test_pack_timer_notify():
+    payload = pack_timer_notify(10, pid=42, periodic=True)
+    assert payload == pack_timer_notify(10, pid=42, periodic=True)
+    assert len(payload) > 0
+
+
+def test_timer_set_notification(fake_timer_dev, monkeypatch):
+    monkeypatch.setattr("os.getpid", lambda: 99)
+
+    tmr = Timer("/dev/timer0")
+    tmr.set_notification(10, periodic=True)
+
+    expected = pack_timer_notify(10, pid=99, periodic=True)
+    notification_calls = [
+        (fd, cmd, bytes(arg))
+        for fd, cmd, arg in fake_timer_dev["calls"]
+        if cmd == TCIOC_NOTIFICATION
+    ]
+    assert notification_calls == [(55, TCIOC_NOTIFICATION, expected)]
+
+
+def test_timer_set_notification_explicit_pid(fake_timer_dev):
+    tmr = Timer("/dev/timer0")
+    tmr.set_notification(32, pid=7, periodic=False)
+
+    expected = pack_timer_notify(32, pid=7, periodic=False)
+    assert any(
+        fd == 55 and cmd == TCIOC_NOTIFICATION and bytes(arg) == expected
+        for fd, cmd, arg in fake_timer_dev["calls"]
+    )
+
+
+def test_timer_set_notification_validation(fake_timer_dev):
+    tmr = Timer("/dev/timer0")
+
+    with pytest.raises(TypeError):
+        tmr.set_notification("10")
+    with pytest.raises(ValueError):
+        tmr.set_notification(0)
+    with pytest.raises(ValueError):
+        tmr.set_notification(64)
+    with pytest.raises(TypeError):
+        tmr.set_notification(10, pid="1")
+    with pytest.raises(ValueError):
+        tmr.set_notification(10, pid=0)
+    with pytest.raises(TypeError):
+        tmr.set_notification(10, periodic="yes")
 
 
 def test_timer_validation(fake_timer_dev):

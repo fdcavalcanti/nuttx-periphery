@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import ctypes
+import os
 import struct
 from array import array
 from dataclasses import dataclass
 
 from .device import CharacterDevice
 from .ioctl_consts import (
+    SIGEV_SIGNAL,
     TCFLAGS_ACTIVE,
     TCFLAGS_HANDLER,
     TCIOC_GETSTATUS,
     TCIOC_MAXTIMEOUT,
+    TCIOC_NOTIFICATION,
     TCIOC_SETTIMEOUT,
     TCIOC_START,
     TCIOC_STOP,
@@ -20,6 +24,30 @@ from .ioctl_consts import (
     TCIOC_TICK_SETTIMEOUT,
 )
 from .utils import check_u32
+
+_MAX_SIGNO = 63
+
+
+class _Sigevent(ctypes.Structure):
+    """struct sigevent from include/signal.h."""
+
+    _fields_ = [
+        ("sigev_notify", ctypes.c_int),
+        ("sigev_signo", ctypes.c_int),
+        ("sigev_value", ctypes.c_void_p),
+        ("_tid", ctypes.c_int),
+    ]
+
+
+class _TimerNotify(ctypes.Structure):
+    """struct timer_notify_s from include/nuttx/timers/timer.h."""
+
+    _fields_ = [
+        ("event", _Sigevent),
+        ("pid", ctypes.c_int),
+        ("periodic", ctypes.c_bool),
+    ]
+
 
 # struct timer_status_s { uint32_t flags; uint32_t timeout; uint32_t timeleft; }
 _STATUS_STRUCT = struct.Struct("@III")
@@ -67,6 +95,45 @@ class TimerStatus:
         return cls(flags=flags, timeout=timeout, timeleft=timeleft)
 
 
+def pack_timer_notify(
+    signo: int,
+    *,
+    pid: int,
+    periodic: bool = False,
+    notify: int = SIGEV_SIGNAL,
+) -> bytes:
+    """Pack a ``timer_notify_s`` buffer for ``TCIOC_NOTIFICATION``."""
+    _check_signo(signo)
+    _check_pid(pid)
+    if not isinstance(notify, int):
+        raise TypeError("notify must be int")
+    if not isinstance(periodic, bool):
+        raise TypeError("periodic must be bool")
+
+    entry = _TimerNotify()
+    entry.event.sigev_notify = notify
+    entry.event.sigev_signo = signo
+    entry.event.sigev_value = None
+    entry.event._tid = 0
+    entry.pid = pid
+    entry.periodic = periodic
+    return bytes(entry)
+
+
+def _check_signo(signo: int) -> None:
+    if not isinstance(signo, int):
+        raise TypeError("signo must be int")
+    if signo < 1 or signo > _MAX_SIGNO:
+        raise ValueError(f"signo must be between 1 and {_MAX_SIGNO}")
+
+
+def _check_pid(pid: int) -> None:
+    if not isinstance(pid, int):
+        raise TypeError("pid must be int")
+    if pid <= 0:
+        raise ValueError("pid must be > 0")
+
+
 class Timer(CharacterDevice):
     """NuttX timer character device wrapper."""
 
@@ -108,6 +175,35 @@ class Timer(CharacterDevice):
         """Return True if the timer is currently running."""
         return self.get_status_us().active
 
+    def set_notification(
+        self,
+        signo: int,
+        *,
+        pid: int | None = None,
+        periodic: bool = False,
+        notify: int = SIGEV_SIGNAL,
+    ) -> None:
+        """Register a signal to receive when the timer expires.
+
+        Install a handler for ``signo`` (for example via ``signal.signal``)
+        before starting the timer. The NuttX timer example uses
+        ``sigaction`` plus ``TCIOC_NOTIFICATION`` in that order.
+
+        Args:
+            signo: NuttX signal number delivered on expiration (1–63).
+            pid: Task ID to signal; defaults to ``os.getpid()``.
+            periodic: When True, the timer rearms after each expiration.
+            notify: ``sigev_notify`` mode; use ``SIGEV_SIGNAL`` (default).
+        """
+        task_pid = os.getpid() if pid is None else pid
+        payload = pack_timer_notify(
+            signo,
+            pid=task_pid,
+            periodic=periodic,
+            notify=notify,
+        )
+        self.ioctl_raw(TCIOC_NOTIFICATION, bytearray(payload))
+
     def read_status(self, cmd: int) -> TimerStatus:
         """Read timer status via the given TCIOC_GETSTATUS ioctl command."""
         buf = bytearray(_STATUS_SIZE)
@@ -123,4 +219,5 @@ class Timer(CharacterDevice):
 __all__ = [
     "Timer",
     "TimerStatus",
+    "pack_timer_notify",
 ]

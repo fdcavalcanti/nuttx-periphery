@@ -69,6 +69,10 @@ TCIOC_TICK_MAXTIMEOUT = _ioc(TC_BASE, 0x0009)
 TCFLAGS_ACTIVE = 1 << 0
 TCFLAGS_HANDLER = 1 << 1
 
+# include/signal.h — sigev_notify values for struct sigevent
+SIGEV_NONE = 0
+SIGEV_SIGNAL = 1
+
 
 __all__ = [
     "PWMIOC_BASE",
@@ -110,4 +114,6 @@ __all__ = [
     "TCIOC_TICK_MAXTIMEOUT",
     "TCFLAGS_ACTIVE",
     "TCFLAGS_HANDLER",
+    "SIGEV_NONE",
+    "SIGEV_SIGNAL",
 ]
