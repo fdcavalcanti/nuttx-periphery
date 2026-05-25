@@ -5,7 +5,7 @@ import ctypes
 from .device import CharacterDevice
 from .gpio import GPIO, GPIOPinType
 from .pwm import PWM, PWMChannel, PWMInfo
-from .timer import Timer, TimerNotify, TimerStatus
+from .timer import Timer, TimerStatus
 from .userled import UserLED
 
 _pointer_size = ctypes.sizeof(ctypes.c_void_p)
@@ -22,6 +22,5 @@ __all__ = [
     "PWMChannel",
     "Timer",
     "TimerStatus",
-    "TimerNotify",
     "CharacterDevice",
 ]

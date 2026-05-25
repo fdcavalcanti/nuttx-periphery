@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import ctypes
-import os
 import struct
 from array import array
 from dataclasses import dataclass
@@ -14,7 +12,6 @@ from .ioctl_consts import (
     TCFLAGS_HANDLER,
     TCIOC_GETSTATUS,
     TCIOC_MAXTIMEOUT,
-    TCIOC_NOTIFICATION,
     TCIOC_SETTIMEOUT,
     TCIOC_START,
     TCIOC_STOP,
@@ -24,48 +21,9 @@ from .ioctl_consts import (
 )
 from .utils import check_u32
 
-# sigev_notify values from include/signal.h
-SIGEV_NONE = 0
-SIGEV_SIGNAL = 1
-SIGEV_THREAD_ID = 4
-
 # struct timer_status_s { uint32_t flags; uint32_t timeout; uint32_t timeleft; }
 _STATUS_STRUCT = struct.Struct("@III")
 _STATUS_SIZE = _STATUS_STRUCT.size
-
-
-# struct sigevent and struct timer_notify_s mirrored from include/signal.h
-# and include/nuttx/timers/timer.h. The CONFIG_SIG_EVTHREAD variant is not
-# represented; the union is reduced to its non-thread member (_tid).
-class _SigvalUnion(ctypes.Union):
-    _fields_ = [
-        ("sival_int", ctypes.c_int),
-        ("sival_ptr", ctypes.c_void_p),
-    ]
-
-
-class _SigevUnUnion(ctypes.Union):
-    _fields_ = [("_tid", ctypes.c_int)]
-
-
-class _SigEventStruct(ctypes.Structure):
-    _fields_ = [
-        ("sigev_notify", ctypes.c_int),
-        ("sigev_signo", ctypes.c_int),
-        ("sigev_value", _SigvalUnion),
-        ("_sigev_un", _SigevUnUnion),
-    ]
-
-
-class _TimerNotifyStruct(ctypes.Structure):
-    _fields_ = [
-        ("event", _SigEventStruct),
-        ("pid", ctypes.c_int),
-        ("periodic", ctypes.c_bool),
-    ]
-
-
-_NOTIFY_SIZE = ctypes.sizeof(_TimerNotifyStruct)
 
 
 @dataclass
@@ -109,64 +67,6 @@ class TimerStatus:
         return cls(flags=flags, timeout=timeout, timeleft=timeleft)
 
 
-@dataclass
-class TimerNotify:
-    """NuttX timer_notify_s structure.
-
-    Describes how the kernel notifies user space when the timer expires.
-    The CONFIG_SIG_EVTHREAD variant of struct sigevent is not supported.
-
-    Attributes:
-        pid: Task/thread ID to receive the signal.
-        signo: Signal number to deliver (e.g. SIGRTMIN..SIGRTMAX).
-        periodic: True for periodic notifications, False for one-shot.
-        notify: Notification method (SIGEV_NONE, SIGEV_SIGNAL,
-            SIGEV_THREAD_ID). Defaults to SIGEV_SIGNAL.
-        sigval_int: Integer payload delivered with the signal (sigval.sival_int).
-        tid: Target thread id when notify == SIGEV_THREAD_ID.
-    """
-
-    pid: int
-    signo: int
-    periodic: bool = True
-    notify: int = SIGEV_SIGNAL
-    sigval_int: int = 0
-    tid: int = 0
-
-    def to_bytes(self) -> bytes:
-        if not isinstance(self.pid, int):
-            raise TypeError("pid must be int")
-        if not isinstance(self.signo, int):
-            raise TypeError("signo must be int")
-        if not isinstance(self.periodic, bool):
-            raise TypeError("periodic must be bool")
-
-        c_obj = _TimerNotifyStruct()
-        c_obj.event.sigev_notify = self.notify
-        c_obj.event.sigev_signo = self.signo
-        c_obj.event.sigev_value.sival_int = self.sigval_int
-        c_obj.event._sigev_un._tid = self.tid
-        c_obj.pid = self.pid
-        c_obj.periodic = self.periodic
-        return bytes(c_obj)
-
-    @classmethod
-    def from_bytes(cls, data: bytes | bytearray | memoryview) -> "TimerNotify":
-        if not isinstance(data, (bytes, bytearray, memoryview)):
-            raise TypeError("data must be bytes, bytearray, or memoryview")
-        if len(data) < _NOTIFY_SIZE:
-            raise ValueError("data buffer too small for timer_notify_s")
-        c_obj = _TimerNotifyStruct.from_buffer_copy(bytes(data[:_NOTIFY_SIZE]))
-        return cls(
-            pid=int(c_obj.pid),
-            signo=int(c_obj.event.sigev_signo),
-            periodic=bool(c_obj.periodic),
-            notify=int(c_obj.event.sigev_notify),
-            sigval_int=int(c_obj.event.sigev_value.sival_int),
-            tid=int(c_obj.event._sigev_un._tid),
-        )
-
-
 class Timer(CharacterDevice):
     """NuttX timer character device wrapper."""
 
@@ -208,48 +108,8 @@ class Timer(CharacterDevice):
         """Return True if the timer is currently running."""
         return self.get_status_us().active
 
-    def set_notification(
-        self,
-        notify: TimerNotify | bytes | bytearray | memoryview,
-    ) -> None:
-        """Register the timer expiration notification (TCIOC_NOTIFICATION)."""
-        if isinstance(notify, TimerNotify):
-            notify = notify.to_bytes()
-        elif not isinstance(notify, (bytes, bytearray, memoryview)):
-            raise TypeError(
-                "notify must be TimerNotify, bytes, bytearray, or memoryview"
-            )
-        self.ioctl_raw(TCIOC_NOTIFICATION, notify)
-
-    def notify_signal(
-        self,
-        signo: int,
-        periodic: bool = True,
-        pid: int | None = None,
-        sigval_int: int = 0,
-    ) -> None:
-        """Configure signal-based notification for the calling process.
-
-        Defaults pid to os.getpid(). Use signal.signal() or
-        signal.sigwaitinfo() to receive the signal in Python.
-        """
-        if not isinstance(signo, int):
-            raise TypeError("signo must be int")
-        if signo <= 0:
-            raise ValueError("signo must be > 0")
-        if pid is None:
-            pid = os.getpid()
-        self.set_notification(
-            TimerNotify(
-                pid=pid,
-                signo=signo,
-                periodic=periodic,
-                notify=SIGEV_SIGNAL,
-                sigval_int=sigval_int,
-            )
-        )
-
     def read_status(self, cmd: int) -> TimerStatus:
+        """Read timer status via the given TCIOC_GETSTATUS ioctl command."""
         buf = bytearray(_STATUS_SIZE)
         self.ioctl_raw(cmd, buf)
         return TimerStatus.from_bytes(buf)
@@ -263,8 +123,4 @@ class Timer(CharacterDevice):
 __all__ = [
     "Timer",
     "TimerStatus",
-    "TimerNotify",
-    "SIGEV_NONE",
-    "SIGEV_SIGNAL",
-    "SIGEV_THREAD_ID",
 ]
