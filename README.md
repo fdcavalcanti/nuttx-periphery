@@ -140,16 +140,12 @@ with Timer("/dev/timer0") as tmr:
     tmr.stop()
 ```
 
-Lower-level access:
+Notification buffer for `TCIOC_NOTIFICATION`:
 
 ```python
-from nuttx_periphery.timer import Timer, TimerNotify, pack_timer_notify
+from nuttx_periphery.timer import TimerNotify
 
-# Equivalent buffer for TCIOC_NOTIFICATION
-buf = pack_timer_notify(10, pid=42, periodic=True)
-
-notify = TimerNotify.signal(10, pid=42, periodic=True)
-assert notify.to_bytes() == buf
+buf = TimerNotify.signal(10, pid=42, periodic=True).to_bytes()
 ```
 
 `TimerStatus` exposes `active` and `has_handler` from the status flags.
