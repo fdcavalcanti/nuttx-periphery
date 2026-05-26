@@ -88,7 +88,11 @@ class GPIO(CharacterDevice):
         self.ioctl(GPIOC_IRQ_SETMASK, int(masked))
 
     def register_signal(self, sigevent: Sigevent) -> None:
-        """Register a signal to be emitted by GPIO interrupt."""
+        """Register ``GPIOC_REGISTER`` notification (``struct sigevent``).
+
+        Pass a :class:`~nuttx_periphery.sigevent.Sigevent`, typically from
+        ``Sigevent.signal(signo)``. Install a handler for *signo* first.
+        """
         if not isinstance(sigevent, Sigevent):
             raise TypeError("sigevent must be Sigevent")
         self.ioctl(GPIOC_REGISTER, sigevent.to_bytes())

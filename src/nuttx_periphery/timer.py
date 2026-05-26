@@ -1,10 +1,23 @@
-"""Timer API for NuttX timer character devices."""
+"""Timer API for NuttX timer character devices.
+
+Wraps the timer driver ioctls from ``include/nuttx/timers/timer.h``:
+
+- start / stop
+- timeout in microseconds or ticks
+- status (`struct timer_status_s`) via ``TimerStatus``
+- signal notification (`struct timer_notify_s`) via ``set_notification``
+
+Notification uses ``nuttx_periphery.sigevent`` for the embedded
+``struct sigevent``. Install a Python handler with ``signal.signal`` before
+starting the timer.
+
+See also ``pack_timer_notify()`` for a raw ``timer_notify_s`` buffer.
+"""
 
 from __future__ import annotations
 
 import ctypes
 import os
-import struct
 from array import array
 from dataclasses import dataclass
 
@@ -23,35 +36,92 @@ from .ioctl_consts import (
     TCIOC_TICK_MAXTIMEOUT,
     TCIOC_TICK_SETTIMEOUT,
 )
+from .sigevent import Sigevent, SigeventStruct, check_signo
 from .utils import check_u32
 
-_MAX_SIGNO = 63
 
-
-class _Sigevent(ctypes.Structure):
-    """struct sigevent from include/signal.h."""
-
+class TimerStatusStruct(ctypes.Structure):
     _fields_ = [
-        ("sigev_notify", ctypes.c_int),
-        ("sigev_signo", ctypes.c_int),
-        ("sigev_value", ctypes.c_void_p),
-        ("_tid", ctypes.c_int),
+        ("flags", ctypes.c_uint32),
+        ("timeout", ctypes.c_uint32),
+        ("timeleft", ctypes.c_uint32),
     ]
 
 
-class _TimerNotify(ctypes.Structure):
-    """struct timer_notify_s from include/nuttx/timers/timer.h."""
-
+class TimerNotifyStruct(ctypes.Structure):
     _fields_ = [
-        ("event", _Sigevent),
+        ("event", SigeventStruct),
         ("pid", ctypes.c_int),
         ("periodic", ctypes.c_bool),
     ]
 
 
-# struct timer_status_s { uint32_t flags; uint32_t timeout; uint32_t timeleft; }
-_STATUS_STRUCT = struct.Struct("@III")
-_STATUS_SIZE = _STATUS_STRUCT.size
+TIMER_NOTIFY_SIZE = ctypes.sizeof(TimerNotifyStruct)
+TIMER_STATUS_SIZE = ctypes.sizeof(TimerStatusStruct)
+
+
+@dataclass
+class TimerNotify:
+    """``struct timer_notify_s`` (sigevent + pid + periodic).
+
+    Use :meth:`signal` for the usual ``TCIOC_NOTIFICATION`` payload, or
+    :func:`pack_timer_notify` for a one-shot bytes buffer.
+    """
+
+    event: Sigevent
+    pid: int
+    periodic: bool = False
+
+    SIZE: int = TIMER_NOTIFY_SIZE
+
+    @classmethod
+    def signal(
+        cls,
+        signo: int,
+        *,
+        pid: int,
+        periodic: bool = False,
+        notify: int = SIGEV_SIGNAL,
+    ) -> TimerNotify:
+        """Build a signal notification for ``TCIOC_NOTIFICATION``."""
+        check_signo(signo)
+        if not isinstance(notify, int):
+            raise TypeError("notify must be int")
+        if not isinstance(periodic, bool):
+            raise TypeError("periodic must be bool")
+        if not isinstance(pid, int):
+            raise TypeError("pid must be int")
+        if pid <= 0:
+            raise ValueError("pid must be > 0")
+
+        return cls(
+            event=Sigevent(notify=notify, signo=signo, value=0, thread_id=0),
+            pid=pid,
+            periodic=periodic,
+        )
+
+    def to_bytes(self) -> bytes:
+        timer_notify = TimerNotifyStruct()
+        timer_notify.event = SigeventStruct.from_buffer_copy(self.event.to_bytes())
+        timer_notify.pid = self.pid
+        timer_notify.periodic = self.periodic
+        return bytes(timer_notify)
+
+    @classmethod
+    def from_bytes(cls, data: bytes | bytearray | memoryview) -> TimerNotify:
+        """Parse a ``struct timer_notify_s`` buffer."""
+        if not isinstance(data, (bytes, bytearray, memoryview)):
+            raise TypeError("data must be bytes, bytearray, or memoryview")
+        if len(data) < TIMER_NOTIFY_SIZE:
+            raise ValueError("data buffer too small for timer_notify_s")
+        timer_notify = TimerNotifyStruct.from_buffer_copy(
+            bytes(data[:TIMER_NOTIFY_SIZE])
+        )
+        return cls(
+            event=Sigevent.from_bytes(bytes(timer_notify.event)),
+            pid=timer_notify.pid,
+            periodic=bool(timer_notify.periodic),
+        )
 
 
 @dataclass
@@ -83,16 +153,27 @@ class TimerStatus:
         return bool(self.flags & TCFLAGS_HANDLER)
 
     def to_bytes(self) -> bytes:
-        return _STATUS_STRUCT.pack(self.flags, self.timeout, self.timeleft)
+        timer_status = TimerStatusStruct()
+        timer_status.flags = self.flags
+        timer_status.timeout = self.timeout
+        timer_status.timeleft = self.timeleft
+
+        return bytes(timer_status)
 
     @classmethod
-    def from_bytes(cls, data: bytes | bytearray | memoryview) -> "TimerStatus":
+    def from_bytes(cls, data: bytes | bytearray | memoryview) -> TimerStatus:
         if not isinstance(data, (bytes, bytearray, memoryview)):
             raise TypeError("data must be bytes, bytearray, or memoryview")
-        if len(data) < _STATUS_SIZE:
+        if len(data) < TIMER_STATUS_SIZE:
             raise ValueError("data buffer too small for timer_status_s")
-        flags, timeout, timeleft = _STATUS_STRUCT.unpack_from(data)
-        return cls(flags=flags, timeout=timeout, timeleft=timeleft)
+        timer_status = TimerStatusStruct.from_buffer_copy(
+            bytes(data[:TIMER_STATUS_SIZE])
+        )
+        return cls(
+            flags=int(timer_status.flags),
+            timeout=int(timer_status.timeout),
+            timeleft=int(timer_status.timeleft),
+        )
 
 
 def pack_timer_notify(
@@ -103,39 +184,13 @@ def pack_timer_notify(
     notify: int = SIGEV_SIGNAL,
 ) -> bytes:
     """Pack a ``timer_notify_s`` buffer for ``TCIOC_NOTIFICATION``."""
-    _check_signo(signo)
-    _check_pid(pid)
-    if not isinstance(notify, int):
-        raise TypeError("notify must be int")
-    if not isinstance(periodic, bool):
-        raise TypeError("periodic must be bool")
-
-    entry = _TimerNotify()
-    entry.event.sigev_notify = notify
-    entry.event.sigev_signo = signo
-    entry.event.sigev_value = None
-    entry.event._tid = 0
-    entry.pid = pid
-    entry.periodic = periodic
-    return bytes(entry)
-
-
-def _check_signo(signo: int) -> None:
-    if not isinstance(signo, int):
-        raise TypeError("signo must be int")
-    if signo < 1 or signo > _MAX_SIGNO:
-        raise ValueError(f"signo must be between 1 and {_MAX_SIGNO}")
-
-
-def _check_pid(pid: int) -> None:
-    if not isinstance(pid, int):
-        raise TypeError("pid must be int")
-    if pid <= 0:
-        raise ValueError("pid must be > 0")
+    return TimerNotify.signal(
+        signo, pid=pid, periodic=periodic, notify=notify
+    ).to_bytes()
 
 
 class Timer(CharacterDevice):
-    """NuttX timer character device wrapper."""
+    """NuttX timer character device (e.g. ``/dev/timer0``)."""
 
     def start(self) -> None:
         """Start the timer."""
@@ -196,19 +251,16 @@ class Timer(CharacterDevice):
             notify: ``sigev_notify`` mode; use ``SIGEV_SIGNAL`` (default).
         """
         task_pid = os.getpid() if pid is None else pid
-        payload = pack_timer_notify(
-            signo,
-            pid=task_pid,
-            periodic=periodic,
-            notify=notify,
-        )
+        payload = TimerNotify.signal(
+            signo, pid=task_pid, periodic=periodic, notify=notify
+        ).to_bytes()
         ret = self.ioctl(TCIOC_NOTIFICATION, bytearray(payload))
         if ret != 0:
             raise RuntimeError(f"Error setting notification: {ret}")
 
     def read_status(self, cmd: int) -> TimerStatus:
-        """Read timer status via the given TCIOC_GETSTATUS ioctl command."""
-        buf = bytearray(_STATUS_SIZE)
+        """Read status using ``TCIOC_GETSTATUS`` or ``TCIOC_TICK_GETSTATUS``."""
+        buf = bytearray(TIMER_STATUS_SIZE)
         ret = self.ioctl(cmd, buf)
         if ret != 0:
             raise RuntimeError(f"Error reading status: {ret}")
@@ -224,6 +276,7 @@ class Timer(CharacterDevice):
 
 __all__ = [
     "Timer",
+    "TimerNotify",
     "TimerStatus",
     "pack_timer_notify",
 ]
