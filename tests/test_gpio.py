@@ -18,6 +18,7 @@ from nuttx_periphery.ioctl_consts import (
     GPIOC_UNREGISTER,
     GPIOC_WRITE,
 )
+from nuttx_periphery.sigevent import Sigevent
 
 
 @pytest.fixture()
@@ -118,12 +119,13 @@ def test_gpio_other_ioctls(fake_dev):
 
     gpio.set_debounce_ns(1000)
     gpio.set_irq_mask(True)
-    gpio.register_signal(10)
+    notify = Sigevent(notify=1, signo=10, value=0, thread_id=0)
+    gpio.register_signal(notify)
     gpio.unregister_signal()
 
     assert (42, GPIOC_SETDEBOUNCE, 1000) in fake_dev["calls"]
     assert (42, GPIOC_IRQ_SETMASK, 1) in fake_dev["calls"]
-    assert (42, GPIOC_REGISTER, 10) in fake_dev["calls"]
+    assert (42, GPIOC_REGISTER, notify.to_bytes()) in fake_dev["calls"]
     assert (42, GPIOC_UNREGISTER, 0) in fake_dev["calls"]
 
 
@@ -141,9 +143,7 @@ def test_gpio_validation(fake_dev):
     with pytest.raises(TypeError):
         gpio.set_irq_mask(1)
     with pytest.raises(TypeError):
-        gpio.register_signal("2")
-    with pytest.raises(ValueError):
-        gpio.register_signal(0)
+        gpio.register_signal("2")  # type: ignore[arg-type]
 
 
 def test_ioctl_with_mutable_buffer(fake_dev):

@@ -16,6 +16,7 @@ from .ioctl_consts import (
     GPIOC_UNREGISTER,
     GPIOC_WRITE,
 )
+from .sigevent import Sigevent
 
 
 class GPIOPinType(IntEnum):
@@ -86,13 +87,11 @@ class GPIO(CharacterDevice):
             raise TypeError("masked must be bool")
         self.ioctl(GPIOC_IRQ_SETMASK, int(masked))
 
-    def register_signal(self, signo: int) -> None:
+    def register_signal(self, sigevent: Sigevent) -> None:
         """Register a signal to be emitted by GPIO interrupt."""
-        if not isinstance(signo, int):
-            raise TypeError("signo must be int")
-        if signo <= 0:
-            raise ValueError("signo must be > 0")
-        self.ioctl(GPIOC_REGISTER, signo)
+        if not isinstance(sigevent, Sigevent):
+            raise TypeError("sigevent must be Sigevent")
+        self.ioctl(GPIOC_REGISTER, sigevent.to_bytes())
 
     def unregister_signal(self) -> None:
         """Disable GPIO interrupt signal registration."""
