@@ -10,8 +10,6 @@ Wraps the timer driver ioctls from ``include/nuttx/timers/timer.h``:
 Notification uses ``nuttx_periphery.sigevent`` for the embedded
 ``struct sigevent``. Install a Python handler with ``signal.signal`` before
 starting the timer.
-
-See also ``pack_timer_notify()`` for a raw ``timer_notify_s`` buffer.
 """
 
 from __future__ import annotations
@@ -64,8 +62,7 @@ TIMER_STATUS_SIZE = ctypes.sizeof(TimerStatusStruct)
 class TimerNotify:
     """``struct timer_notify_s`` (sigevent + pid + periodic).
 
-    Use :meth:`signal` for the usual ``TCIOC_NOTIFICATION`` payload, or
-    :func:`pack_timer_notify` for a one-shot bytes buffer.
+    Use :meth:`signal` and :meth:`to_bytes` for the ``TCIOC_NOTIFICATION`` payload.
     """
 
     event: Sigevent
@@ -176,19 +173,6 @@ class TimerStatus:
         )
 
 
-def pack_timer_notify(
-    signo: int,
-    *,
-    pid: int,
-    periodic: bool = False,
-    notify: int = SIGEV_SIGNAL,
-) -> bytes:
-    """Pack a ``timer_notify_s`` buffer for ``TCIOC_NOTIFICATION``."""
-    return TimerNotify.signal(
-        signo, pid=pid, periodic=periodic, notify=notify
-    ).to_bytes()
-
-
 class Timer(CharacterDevice):
     """NuttX timer character device (e.g. ``/dev/timer0``)."""
 
@@ -278,5 +262,4 @@ __all__ = [
     "Timer",
     "TimerNotify",
     "TimerStatus",
-    "pack_timer_notify",
 ]

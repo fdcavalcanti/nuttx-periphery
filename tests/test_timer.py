@@ -19,7 +19,7 @@ from nuttx_periphery.ioctl_consts import (
     TCIOC_TICK_MAXTIMEOUT,
     TCIOC_TICK_SETTIMEOUT,
 )
-from nuttx_periphery.timer import Timer, TimerStatus, pack_timer_notify
+from nuttx_periphery.timer import Timer, TimerNotify, TimerStatus
 
 
 @pytest.fixture()
@@ -168,10 +168,11 @@ def test_timer_status_from_bytes_validation():
         TimerStatus.from_bytes(b"\x00" * 4)
 
 
-def test_pack_timer_notify():
-    payload = pack_timer_notify(10, pid=42, periodic=True)
-    assert payload == pack_timer_notify(10, pid=42, periodic=True)
-    assert len(payload) > 0
+def test_timer_notify_pack():
+    notify = TimerNotify.signal(10, pid=42, periodic=True)
+    payload = notify.to_bytes()
+    assert payload == TimerNotify.signal(10, pid=42, periodic=True).to_bytes()
+    assert len(payload) == TimerNotify.SIZE
 
 
 def test_timer_set_notification(fake_timer_dev, monkeypatch):
@@ -180,7 +181,7 @@ def test_timer_set_notification(fake_timer_dev, monkeypatch):
     tmr = Timer("/dev/timer0")
     tmr.set_notification(10, periodic=True)
 
-    expected = pack_timer_notify(10, pid=99, periodic=True)
+    expected = TimerNotify.signal(10, pid=99, periodic=True).to_bytes()
     notification_calls = [
         (fd, cmd, bytes(arg))
         for fd, cmd, arg in fake_timer_dev["calls"]
@@ -193,7 +194,7 @@ def test_timer_set_notification_explicit_pid(fake_timer_dev):
     tmr = Timer("/dev/timer0")
     tmr.set_notification(32, pid=7, periodic=False)
 
-    expected = pack_timer_notify(32, pid=7, periodic=False)
+    expected = TimerNotify.signal(32, pid=7, periodic=False).to_bytes()
     assert any(
         fd == 55 and cmd == TCIOC_NOTIFICATION and bytes(arg) == expected
         for fd, cmd, arg in fake_timer_dev["calls"]
