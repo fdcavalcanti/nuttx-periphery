@@ -76,13 +76,22 @@ class CharacterDevice:
         view[:nread] = data
         return nread
 
-    def ioctl_raw(self, cmd: int, arg: IoctlArg = None) -> int:
-        """Issue a raw ioctl call on the device descriptor."""
+    def ioctl(self, cmd: int, arg: IoctlArg = None) -> int:
+        """Issue an ioctl on the device descriptor.
+
+        Returns the NuttX driver ioctl handler result (``0`` on success,
+        negative ``errno`` on failure).
+        """
         if not isinstance(cmd, int):
             raise TypeError("cmd must be int")
 
         fd = self.fileno()
 
         if arg is None:
-            return fcntl.ioctl(fd, cmd)
-        return fcntl.ioctl(fd, cmd, arg)
+            return int(fcntl.ioctl(fd, cmd))
+
+        # Mutable buffers must use the default mutate_flag so fcntl returns the
+        # driver status (int). With mutate_flag=False, NuttX Python returns the
+        # buffer contents as bytes and int() would fail.
+        result = fcntl.ioctl(fd, cmd, arg)
+        return result

@@ -46,19 +46,19 @@ class GPIO(CharacterDevice):
     def read(self) -> bool:
         """Read current GPIO level."""
         value = bytearray(1)
-        self.ioctl_raw(GPIOC_READ, value)
+        self.ioctl(GPIOC_READ, value)
         return bool(value[0])
 
     def write(self, value: bool) -> None:
         """Write output GPIO level."""
         if not isinstance(value, bool):
             raise TypeError("value must be bool")
-        self.ioctl_raw(GPIOC_WRITE, int(value))
+        self.ioctl(GPIOC_WRITE, int(value))
 
     def get_pin_type(self) -> GPIOPinType:
         """Get current configured pin type."""
         result = array("i", [0])
-        self.ioctl_raw(GPIOC_PINTYPE, result)
+        self.ioctl(GPIOC_PINTYPE, result)
         return GPIOPinType(result[0])
 
     def set_pin_type(self, pin_type: GPIOPinType) -> None:
@@ -70,7 +70,7 @@ class GPIO(CharacterDevice):
         else:
             raise TypeError("pin_type must be GPIOPinType or int")
 
-        self.ioctl_raw(GPIOC_SETPINTYPE, value)
+        self.ioctl(GPIOC_SETPINTYPE, value)
 
     def set_debounce_ns(self, value: int) -> None:
         """Set debounce duration in nanoseconds."""
@@ -78,13 +78,13 @@ class GPIO(CharacterDevice):
             raise TypeError("value must be int")
         if value < 0:
             raise ValueError("value must be >= 0")
-        self.ioctl_raw(GPIOC_SETDEBOUNCE, value)
+        self.ioctl(GPIOC_SETDEBOUNCE, value)
 
     def set_irq_mask(self, masked: bool) -> None:
         """Mask or unmask GPIO interrupt."""
         if not isinstance(masked, bool):
             raise TypeError("masked must be bool")
-        self.ioctl_raw(GPIOC_IRQ_SETMASK, int(masked))
+        self.ioctl(GPIOC_IRQ_SETMASK, int(masked))
 
     def register_signal(self, signo: int) -> None:
         """Register a signal to be emitted by GPIO interrupt."""
@@ -92,11 +92,11 @@ class GPIO(CharacterDevice):
             raise TypeError("signo must be int")
         if signo <= 0:
             raise ValueError("signo must be > 0")
-        self.ioctl_raw(GPIOC_REGISTER, signo)
+        self.ioctl(GPIOC_REGISTER, signo)
 
     def unregister_signal(self) -> None:
         """Disable GPIO interrupt signal registration."""
-        self.ioctl_raw(GPIOC_UNREGISTER, 0)
+        self.ioctl(GPIOC_UNREGISTER, 0)
 
 
 __all__ = ["GPIO", "GPIOPinType"]

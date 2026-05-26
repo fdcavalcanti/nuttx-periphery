@@ -139,16 +139,16 @@ class Timer(CharacterDevice):
 
     def start(self) -> None:
         """Start the timer."""
-        self.ioctl_raw(TCIOC_START, 0)
+        self.ioctl(TCIOC_START, 0)
 
     def stop(self) -> None:
         """Stop the timer."""
-        self.ioctl_raw(TCIOC_STOP, 0)
+        self.ioctl(TCIOC_STOP, 0)
 
     def set_timeout_us(self, timeout_us: int) -> None:
         """Set the timer period in microseconds."""
         check_u32(timeout_us, "timeout_us")
-        self.ioctl_raw(TCIOC_SETTIMEOUT, timeout_us)
+        self.ioctl(TCIOC_SETTIMEOUT, timeout_us)
 
     def get_status_us(self) -> TimerStatus:
         """Read current timer status with time values in microseconds."""
@@ -161,7 +161,7 @@ class Timer(CharacterDevice):
     def set_timeout_ticks(self, timeout_ticks: int) -> None:
         """Set the timer period in ticks."""
         check_u32(timeout_ticks, "timeout_ticks")
-        self.ioctl_raw(TCIOC_TICK_SETTIMEOUT, timeout_ticks)
+        self.ioctl(TCIOC_TICK_SETTIMEOUT, timeout_ticks)
 
     def get_status_ticks(self) -> TimerStatus:
         """Read current timer status with time values in ticks."""
@@ -202,17 +202,23 @@ class Timer(CharacterDevice):
             periodic=periodic,
             notify=notify,
         )
-        self.ioctl_raw(TCIOC_NOTIFICATION, bytearray(payload))
+        ret = self.ioctl(TCIOC_NOTIFICATION, bytearray(payload))
+        if ret != 0:
+            raise RuntimeError(f"Error setting notification: {ret}")
 
     def read_status(self, cmd: int) -> TimerStatus:
         """Read timer status via the given TCIOC_GETSTATUS ioctl command."""
         buf = bytearray(_STATUS_SIZE)
-        self.ioctl_raw(cmd, buf)
+        ret = self.ioctl(cmd, buf)
+        if ret != 0:
+            raise RuntimeError(f"Error reading status: {ret}")
         return TimerStatus.from_bytes(buf)
 
     def _read_u32(self, cmd: int) -> int:
         result = array("I", [0])
-        self.ioctl_raw(cmd, result)
+        ret = self.ioctl(cmd, result)
+        if ret != 0:
+            raise RuntimeError(f"Error reading u32: {ret}")
         return int(result[0])
 
 

@@ -146,11 +146,11 @@ def test_gpio_validation(fake_dev):
         gpio.register_signal(0)
 
 
-def test_ioctl_raw_with_mutable_buffer(fake_dev):
+def test_ioctl_with_mutable_buffer(fake_dev):
     dev = CharacterDevice("/dev/gpio0")
     data = array("i", [0])
 
-    ret = dev.ioctl_raw(GPIOC_PINTYPE, data)
+    ret = dev.ioctl(GPIOC_PINTYPE, data)
 
     assert ret == 0
     assert data[0] == int(GPIOPinType.GPIO_OUTPUT_PIN)

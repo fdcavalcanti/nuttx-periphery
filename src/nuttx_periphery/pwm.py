@@ -331,7 +331,7 @@ class PWM(CharacterDevice):
             )
         elif not isinstance(data, (bytes, bytearray, memoryview)):
             raise TypeError("data must be PWMInfo, bytes, bytearray, or memoryview")
-        self.ioctl_raw(PWMIOC_SETCHARACTERISTICS, data)
+        self.ioctl(PWMIOC_SETCHARACTERISTICS, data)
 
     def _get_charateristics(self, size: int) -> bytes:
         """Low-level raw read of packed ``pwm_info_s`` bytes."""
@@ -340,7 +340,7 @@ class PWM(CharacterDevice):
         if size <= 0:
             raise ValueError("size must be > 0")
         buf = bytearray(size)
-        self.ioctl_raw(PWMIOC_GETCHARACTERISTICS, buf)
+        self.ioctl(PWMIOC_GETCHARACTERISTICS, buf)
         return bytes(buf)
 
     def get_characteristics(
@@ -364,21 +364,21 @@ class PWM(CharacterDevice):
         )
 
     def start(self) -> None:
-        self.ioctl_raw(PWMIOC_START, 0)
+        self.ioctl(PWMIOC_START, 0)
 
     def stop(self) -> None:
-        self.ioctl_raw(PWMIOC_STOP, 0)
+        self.ioctl(PWMIOC_STOP, 0)
 
     def faults_fetch_and_clear(self, mask: int | None = None) -> int | None:
         if mask is None:
-            self.ioctl_raw(PWMIOC_FAULTS_FETCH_AND_CLEAR, 0)
+            self.ioctl(PWMIOC_FAULTS_FETCH_AND_CLEAR, 0)
             return None
         if not isinstance(mask, int):
             raise TypeError("mask must be int or None")
         if mask < 0:
             raise ValueError("mask must be >= 0")
         faults = array("L", [mask])
-        self.ioctl_raw(PWMIOC_FAULTS_FETCH_AND_CLEAR, faults)
+        self.ioctl(PWMIOC_FAULTS_FETCH_AND_CLEAR, faults)
         return int(faults[0])
 
 
