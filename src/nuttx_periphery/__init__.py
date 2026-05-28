@@ -4,7 +4,7 @@ import ctypes
 
 from .device import CharacterDevice
 from .gpio import GPIO, GPIOPinType
-from .pwm import PWM, PWMChannel, PWMInfo
+from .pwm import PWM
 from .timer import Timer, TimerStatus
 from .userled import UserLED
 
@@ -18,8 +18,6 @@ __all__ = [
     "GPIOPinType",
     "UserLED",
     "PWM",
-    "PWMInfo",
-    "PWMChannel",
     "Timer",
     "TimerStatus",
     "CharacterDevice",

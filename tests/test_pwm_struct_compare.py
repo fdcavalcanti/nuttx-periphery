@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from nuttx_periphery.pwm import PWMChannel, PWMInfo
+from nuttx_periphery.pwm import PWMInfoStruct
 
 HERE = Path(__file__).resolve().parent
 PROBE_C = HERE / "extra" / "pwm_struct_probe.c"
@@ -47,58 +47,39 @@ def _build_and_run(defines: list[str]) -> bytes:
 
 
 def _expected_single(has_deadtime: bool, has_pulsecount: bool) -> bytes:
-    info = PWMInfo(
-        frequency=20000,
-        duty=1000,
-        cpol=1,
-        dcpol=2,
-        arg=ARG_VALUE,
-        dead_time_a=11 if has_deadtime else None,
-        dead_time_b=12 if has_deadtime else None,
-        count=33 if has_pulsecount else None,
-        channels=[
-            PWMChannel(
-                duty=1000,
-                cpol=1,
-                dcpol=2,
-                channel=0,
-                dead_time_a=11 if has_deadtime else None,
-                dead_time_b=12 if has_deadtime else None,
-                count=33 if has_pulsecount else None,
-            )
-        ],
-    )
-    return info.to_bytes(
-        channel_count=1,
-        has_deadtime=has_deadtime,
-        has_pulsecount=has_pulsecount,
-    )
+    info = PWMInfoStruct(1, has_deadtime, has_pulsecount)
+    info.frequency = 20000
+    info.channels[0].duty = 1000
+    info.channels[0].cpol = 1
+    info.channels[0].dcpol = 2
+    info.channels[0].channel = 0
+    if has_deadtime:
+        info.channels[0].dead_time_a = 11
+        info.channels[0].dead_time_b = 12
+    if has_pulsecount:
+        info.channels[0].count = 33
+    info.arg = ARG_VALUE
+    return bytes(info)
 
 
 def _expected_multi(has_deadtime: bool) -> bytes:
-    info = PWMInfo(
-        frequency=20000,
-        arg=ARG_VALUE,
-        channels=[
-            PWMChannel(
-                duty=1000,
-                cpol=1,
-                dcpol=2,
-                channel=0,
-                dead_time_a=11 if has_deadtime else None,
-                dead_time_b=12 if has_deadtime else None,
-            ),
-            PWMChannel(
-                duty=2000,
-                cpol=0,
-                dcpol=1,
-                channel=-1,
-                dead_time_a=21 if has_deadtime else None,
-                dead_time_b=22 if has_deadtime else None,
-            ),
-        ],
-    )
-    return info.to_bytes(channel_count=2, has_deadtime=has_deadtime)
+    info = PWMInfoStruct(2, has_deadtime)
+    info.frequency = 20000
+    info.channels[0].duty = 1000
+    info.channels[0].cpol = 1
+    info.channels[0].dcpol = 2
+    info.channels[0].channel = 0
+    info.channels[1].duty = 2000
+    info.channels[1].cpol = 0
+    info.channels[1].dcpol = 1
+    info.channels[1].channel = -1
+    if has_deadtime:
+        info.channels[0].dead_time_a = 11
+        info.channels[0].dead_time_b = 12
+        info.channels[1].dead_time_a = 21
+        info.channels[1].dead_time_b = 22
+    info.arg = ARG_VALUE
+    return bytes(info)
 
 
 @pytest.mark.parametrize(
