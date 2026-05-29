@@ -1,25 +1,65 @@
 # nuttx-periphery
 
-Pure Python peripheral APIs for NuttX character devices.
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![NuttX](https://img.shields.io/badge/platform-NuttX-lightgrey.svg)](https://nuttx.apache.org/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#license)
 
-Current status:
-- GPIO support (including signal-based interrupt registration)
-- User LED control support
-- PWM control support
-- Timer character devices (status, timeouts, signal notification)
-- `struct sigevent` / `struct timer_notify_s` packing via ctypes
-- ioctl constants for GPIO, PWM, UserLED, Timer, and signal notify modes
-- no custom exception classes
+**Pure Python peripheral APIs** for NuttX character devices.
 
-## Scope
+`nuttx_periphery` wraps GPIO, PWM, User LED, and Timer character devices with typed Python methods built on `os.open`, `fcntl.ioctl`, and ctypes structures aligned with NuttX headers.
 
-This package targets CPython running on NuttX and uses:
-- `os.open` / `os.close`
-- `fcntl.ioctl`
+NuttX is a POSIX compliant real-time operating system (RTOS) which now has CPython support on QEMU RISC-V and Espressif devices such as ESP32-P4.
 
-It follows a NuttX-first design with typed Python methods and a raw ioctl escape hatch.
+## Installation
 
-## GPIO Example
+Currently pip installations are very slow due to the amount of imports required. To fix this, a custom installation script is provided.
+
+> **NOTE:**
+> This process will be simplified when PyPi releases are available.
+
+On the host machine, clone this repository, generate the .whl file and start a http server:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+python3 -m build --wheel
+python3 -m http.server
+```
+
+On the target, download the install script and wheel to `/tmp/`:
+```bash
+wget -O /tmp/install-packages.py <host IP>:8000/scripts/install-packages.py
+wget -O /tmp/nuttx_periphery-0.1.0-py3-none-any.whl <host IP>:8000/dist/nuttx_periphery-0.1.0-py3-none-any.whl
+```
+
+Now run the installer (defaults: install to `/data`, use the newest `.whl` in the script directory):
+
+```bash
+python /tmp/install-packages.py /data /tmp/nuttx_periphery-0.1.0-py3-none-any.whl
+export PYTHONPATH=/data:$PYTHONPATH
+```
+
+The script and wheel must live in the same directory (e.g. `/tmp/`) unless the wheel path is passed explicitly.
+
+## Features
+
+- **GPIO**: output, input, and signal-based interrupt registration.
+- **User LED**: per-LED and mask read/write.
+- **PWM**: per-channel frequency, duty, and optional dead-time / pulse count.
+- **Timer**: status polling, timeouts, and signal notification.
+- **Generic device access**: raw read/ioctl via `CharacterDevice`.
+
+## Requirements
+
+- NuttX running on microcontroller with CPython available
+  - esp32p4-function-ev-board:python
+- NuttX on QEMU (rv-virt:python)
+  - rv-virt:python
+
+## Quick Start
+
+Execute the following snippet from the Python interpreter on target:
 
 ```python
 from nuttx_periphery import GPIO, GPIOPinType
@@ -29,180 +69,42 @@ with GPIO("/dev/gpio0") as gpio:
     gpio.write(True)
 ```
 
-## User LED Example
+## Examples
 
-```python
-from nuttx_periphery import UserLED
+Additional runnable scripts are in [`examples/`](examples/):
 
-with UserLED("/dev/userleds") as leds:
-    print(f"supported mask: 0x{leds.supported():08x}")
-    leds.set_led(0, True)
-    leds.set_all(0b101)
-    print(f"current state: 0x{leds.get_all():08x}")
-```
+- [`gpio_out.py`](examples/gpio_out.py) — blink a GPIO output
+- [`gpio_interrupt.py`](examples/gpio_interrupt.py) — wait for a GPIO interrupt via signal
+- [`pwm.py`](examples/pwm.py) — read and write PWM channel settings
+- [`timer.py`](examples/timer.py) — poll timer time left until expiration
+- [`timer_notification.py`](examples/timer_notification.py) — wait for timer expiration via signal
 
-## PWM Example
-
-```python
-from nuttx_periphery import PWM, PWMInfo
-
-with PWM("/dev/pwm0") as pwm:
-    pwm.set_characteristics(PWMInfo(frequency=1_000, duty=32768))
-    info = pwm.get_characteristics()
-    print(info)
-    pwm.start()
-    pwm.stop()
-```
-
-Optional helper for pre-filled info:
-
-```python
-from nuttx_periphery import PWM
-
-with PWM("/dev/pwm0", has_deadtime=True, has_pulsecount=True) as pwm:
-    info = pwm.new_pwm_info(frequency=1_000, duty=32768)
-    pwm.set_characteristics(info)
-```
-
-## Signal events (`struct sigevent`)
-
-The `nuttx_periphery.sigevent` module mirrors NuttX `struct sigevent` from
-`include/signal.h` (without `CONFIG_SIG_EVTHREAD`). Layout is built with
-ctypes:
-
-- `SigvalStruct` — `union sigval` (`sival_int` / `sival_ptr`)
-- `SigeventStruct` — C layout used for ioctl buffers
-- `Sigevent` — dataclass with `to_bytes()` / `from_bytes()`
-
-NuttX signal numbers must be in the range **1–63** (`MAX_SIGNO`). Use
-`SIGEV_SIGNAL` (from `ioctl_consts`) for normal signal delivery.
-
-```python
-from nuttx_periphery.ioctl_consts import SIGEV_SIGNAL
-from nuttx_periphery.sigevent import Sigevent
-
-# thread_id defaults to os.getpid()
-notify = Sigevent.signal(signo=10, value=0)
-payload = notify.to_bytes()  # bytes for GPIOC_REGISTER, etc.
-```
-
-`Sigevent` fields map to the C struct as follows:
-
-| Python field | C field |
-|--------------|---------|
-| `notify` | `sigev_notify` |
-| `signo` | `sigev_signo` |
-| `value` | `sigev_value.sival_int` |
-| `thread_id` | `_sigev_un._tid` |
-
-## GPIO interrupt example
-
-Register a signal when the pin interrupts (see `examples/gpio_interrupt.py`):
-
-```python
-import signal
-
-from nuttx_periphery import GPIO, GPIOPinType
-from nuttx_periphery.sigevent import Sigevent
-
-signo = signal.SIGUSR1
-signal.signal(signo, lambda s, f: print("GPIO interrupt"))
-
-with GPIO("/dev/gpio0") as gpio:
-    gpio.set_pin_type(GPIOPinType.GPIO_INTERRUPT_RISING_PIN)
-    gpio.register_signal(Sigevent.signal(signo))
-    # wait for the signal, then gpio.unregister_signal()
-```
-
-## Timer example
-
-Poll timer status or wait for expiration via a signal:
-
-```python
-import signal
-import time
-
-from nuttx_periphery import Timer
-
-signo = signal.SIGUSR1
-signal.signal(signo, lambda s, f: print("timer expired"))
-
-with Timer("/dev/timer0") as tmr:
-    tmr.set_notification(signo, periodic=False)
-    tmr.set_timeout_us(2_000_000)
-    tmr.start()
-
-    while tmr.is_active():
-        status = tmr.get_status_us()
-        print("time left (us):", status.timeleft)
-        time.sleep(0.1)
-
-    tmr.stop()
-```
-
-Notification buffer for `TCIOC_NOTIFICATION`:
-
-```python
-from nuttx_periphery.timer import TimerNotify
-
-buf = TimerNotify.signal(10, pid=42, periodic=True).to_bytes()
-```
-
-`TimerStatus` exposes `active` and `has_handler` from the status flags.
-Use `get_status_us()` / `get_status_ticks()` for time values in microseconds
-or ticks; `read_status(cmd)` accepts a specific `TCIOC_*_GETSTATUS` ioctl.
-
-## Generic read example
-
-```python
-from nuttx_periphery.device import CharacterDevice
-
-buf = bytearray(32)
-
-with CharacterDevice("/dev/random") as dev:
-    nread = dev.read(buf, len(buf))
-
-print("bytes read:", nread)
-print("data:", bytes(buf[:nread]))
-```
-
-## NuttX Requirements
-
-For GPIO:
-- `CONFIG_DEV_GPIO=y`
-- one or more GPIO character devices under `/dev` (e.g. `/dev/gpio0`)
-
-For PWM:
-- `CONFIG_PWM`
-
-For User LED:
-- `CONFIG_USERLED`
-
-For Timer:
-- timer character device under `/dev` (e.g. `/dev/timer0`)
-- Python `signal` module to handle expiration notifications
-
-## Development
-
-Install dev dependencies:
+Run on a NuttX board:
 
 ```bash
+wget -O /tmp/gpio_out.py <host IP>:8000/examples/gpio_out.py
+python /tmp/gpio_out.py
+```
+
+## Contributing
+
+Contributions are welcome.
+
+- Tests are required for new features.
+- Code linting via `pre-commit` is required.
+
+Install from source:
+
+```bash
+git clone <repository-url>
+cd nuttx-periphery
 python -m pip install -e ".[dev]"
-```
-
-Run tests:
-
-```bash
+pre-commit install
 pytest
 ```
 
-## Build wheel
+The generated `.whl` and install script will be in `dist/`.
 
-From the project root:
+## License
 
-```bash
-python -m pip install --upgrade build
-python -m build --wheel
-```
-
-The generated `.whl` file will be in `dist/`.
+This project is licensed under the Apache License 2.0.
