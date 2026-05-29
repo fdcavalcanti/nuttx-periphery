@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=69", "wheel", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nuttx_periphery"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Pure Python peripheral APIs for NuttX character devices"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -26,6 +26,10 @@ classifiers = [
 dev = [
   "pytest>=8",
 ]
+
+[tool.setuptools_scm]
+fallback_version = "0.1.0"
+version_file = "src/nuttx_periphery/_version.py"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
