@@ -25,6 +25,7 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8",
+  "pre-commit",
 ]
 
 [tool.setuptools_scm]
