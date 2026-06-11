@@ -69,6 +69,14 @@ TCIOC_TICK_MAXTIMEOUT = _ioc(TC_BASE, 0x0009)
 TCFLAGS_ACTIVE = 1 << 0
 TCFLAGS_HANDLER = 1 << 1
 
+
+# Oneshot timer: include/nuttx/timers/oneshot.h
+OSIOC_MAXDELAY = _ioc(TC_BASE, 0x0020)
+OSIOC_START = _ioc(TC_BASE, 0x0021)
+OSIOC_CANCEL = _ioc(TC_BASE, 0x0022)
+OSIOC_CURRENT = _ioc(TC_BASE, 0x0023)
+
+
 # include/signal.h — sigev_notify values for struct sigevent
 SIGEV_NONE = 0
 SIGEV_SIGNAL = 1
@@ -114,6 +122,10 @@ __all__ = [
     "TCIOC_TICK_MAXTIMEOUT",
     "TCFLAGS_ACTIVE",
     "TCFLAGS_HANDLER",
+    "OSIOC_MAXDELAY",
+    "OSIOC_START",
+    "OSIOC_CANCEL",
+    "OSIOC_CURRENT",
     "SIGEV_NONE",
     "SIGEV_SIGNAL",
 ]
