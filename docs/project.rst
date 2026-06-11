@@ -1,9 +1,9 @@
 Project overview
 ================
 
-**nuttx_periphery** wraps GPIO, PWM, User LED, and Timer character devices with
-typed Python methods built on ``os.open``, ``fcntl.ioctl``, and ctypes structures
-aligned with NuttX headers.
+**nuttx_periphery** wraps GPIO, PWM, User LED, Timer, and Oneshot timer
+character devices with typed Python methods built on ``os.open``,
+``fcntl.ioctl``, and ctypes structures aligned with NuttX headers.
 
 NuttX is a POSIX compliant real-time operating system (RTOS) which now has CPython
 support on QEMU RISC-V and Espressif devices such as ESP32-P4.
@@ -21,6 +21,8 @@ Features
 - **User LED**: per-LED and mask read/write.
 - **PWM**: per-channel frequency, duty, and optional dead-time / pulse count.
 - **Timer**: status polling, timeouts, and signal notification.
+- **Oneshot timer**: start/cancel, current time, maximum delay, and signal
+  notification via a single ``OSIOC_START`` call.
 - **Generic device access**: raw read/ioctl via :class:`~nuttx_periphery.device.CharacterDevice`.
 
 Requirements
@@ -54,7 +56,8 @@ Execute the following snippet from the Python interpreter on target:
 Examples
 --------
 
-See :doc:`examples/index` for runnable examples of GPIO, PWM, Timer, and User LED.
+See :doc:`examples/index` for runnable examples of GPIO, PWM, Timer, Oneshot
+timer, and User LED.
 
 Contributing
 ------------

@@ -9,6 +9,7 @@ API reference
    gpio
    pwm
    timer
+   oneshot
    userled
    sigevent
    ioctl_consts
