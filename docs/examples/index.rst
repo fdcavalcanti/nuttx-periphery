@@ -11,4 +11,5 @@ workflow).
    gpio
    pwm
    timer
+   oneshot
    userled
