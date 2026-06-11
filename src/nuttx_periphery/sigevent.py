@@ -95,8 +95,7 @@ class Sigevent:
             thread_id=tid,
         )
 
-    def to_bytes(self) -> bytes:
-        """Pack as a native ``struct sigevent`` buffer (``SIGEVENT_SIZE`` bytes)."""
+    def to_struct(self) -> SigeventStruct:
         sigval = SigvalStruct()
         sigval.sival_int = self.value
 
@@ -105,8 +104,11 @@ class Sigevent:
         sigevent.sigev_signo = self.signo
         sigevent.sigev_value = sigval
         sigevent._tid = self.thread_id
+        return sigevent
 
-        return bytes(sigevent)
+    def to_bytes(self) -> bytes:
+        """Pack as a native ``struct sigevent`` buffer (``SIGEVENT_SIZE`` bytes)."""
+        return bytes(self.to_struct())
 
     @classmethod
     def from_bytes(cls, data: bytes | bytearray | memoryview) -> Sigevent:
