@@ -4,6 +4,7 @@ import ctypes
 
 from .device import CharacterDevice
 from .gpio import GPIO, GPIOPinType
+from .oneshot import OneshotTimer, Timespec
 from .pwm import PWM
 from .timer import Timer, TimerStatus
 from .userled import UserLED
@@ -18,6 +19,8 @@ __all__ = [
     "GPIOPinType",
     "UserLED",
     "PWM",
+    "OneshotTimer",
+    "Timespec",
     "Timer",
     "TimerStatus",
     "CharacterDevice",
