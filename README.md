@@ -12,35 +12,7 @@ NuttX is a POSIX compliant real-time operating system (RTOS) which now has CPyth
 
 ## Installation
 
-Currently pip installations are very slow due to the amount of imports required. To fix this, a custom installation script is provided.
-
-> **NOTE:**
-> This process will be simplified when PyPi releases are available.
-
-On the host machine, clone this repository, generate the .whl file and start a http server:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -e .
-python3 -m build --wheel
-python3 -m http.server
-```
-
-On the target, download the install script and wheel to `/tmp/`:
-```bash
-wget -O /tmp/install-packages.py <host IP>:8000/scripts/install-packages.py
-wget -O /tmp/nuttx_periphery-0.1.0-py3-none-any.whl <host IP>:8000/dist/nuttx_periphery-0.1.0-py3-none-any.whl
-```
-
-Now run the installer (defaults: install to `/data`, use the newest `.whl` in the script directory):
-
-```bash
-python /tmp/install-packages.py /data /tmp/nuttx_periphery-0.1.0-py3-none-any.whl
-export PYTHONPATH=/data:$PYTHONPATH
-```
-
-The script and wheel must live in the same directory (e.g. `/tmp/`) unless the wheel path is passed explicitly.
+On NuttX RTOS, this package is installed automatically during build of Python (see `INTERPRETERS_CPYTHON_INSTALL_NUTTX_PACKAGE` on `nuttx-apps`).
 
 ## Features
 
@@ -54,19 +26,40 @@ The script and wheel must live in the same directory (e.g. `/tmp/`) unless the w
 
 - NuttX running on microcontroller with CPython available
   - esp32p4-function-ev-board:python
-- NuttX on QEMU (rv-virt:python)
+- NuttX on QEMU
   - rv-virt:python
 
 ## Quick Start
 
-Execute the following snippet from the Python interpreter on target:
+Start Python on NuttX:
 
+```console
+NuttShell (NSH) NuttX-12.4.0
+nsh> python
+```
+
+Toggle pin state using GPIO module:
 ```python
 from nuttx_periphery import GPIO, GPIOPinType
 
 with GPIO("/dev/gpio0") as gpio:
     gpio.set_pin_type(GPIOPinType.GPIO_OUTPUT_PIN)
     gpio.write(True)
+```
+
+Or operate a PWM pin:
+```python
+from nuttx_periphery.pwm import PWM
+
+with PWM("/dev/pwm0", channel_count=1) as pwm:
+  print(pwm.list_channels())  # See available channels
+  pwm.frequency = 200
+  pwm.channel[0].duty = 45
+  pwm.apply()
+
+  pwm.start()
+  time.sleep(5)
+  pwm.stop()
 ```
 
 ## Examples
@@ -79,10 +72,22 @@ Additional runnable scripts are in [`examples/`](examples/):
 - [`timer.py`](examples/timer.py) — poll timer time left until expiration
 - [`timer_notification.py`](examples/timer_notification.py) — wait for timer expiration via signal
 
-Run on a NuttX board:
+Download scripts to the target board using wget:
 
+- Host:
+
+Clone this repository on the host machine and start Python HTTP server
+
+```console
+cd nuttx-periphery
+python3 -m http.server
+```
+
+- Target:
+
+Use wget on the target board to download scripts
 ```bash
-wget -O /tmp/gpio_out.py <host IP>:8000/examples/gpio_out.py
+wget -o /tmp/gpio_out.py http://192.168.0.20:8000/examples/gpio_out.py
 python /tmp/gpio_out.py
 ```
 
