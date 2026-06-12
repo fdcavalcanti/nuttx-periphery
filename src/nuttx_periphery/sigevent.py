@@ -51,11 +51,10 @@ class SigeventStruct(ctypes.Structure):
 class Sigevent:
     """High-level view of NuttX ``struct sigevent``.
 
-    Attributes:
-        notify: ``sigev_notify`` (e.g. ``SIGEV_SIGNAL``).
-        signo: Signal number delivered to the task (1–63).
-        value: Written to ``sigev_value.sival_int`` (0 if unused).
-        thread_id: ``_sigev_un._tid`` (target task/thread id).
+    ``notify`` is ``sigev_notify`` (e.g. ``SIGEV_SIGNAL``). ``signo`` is the
+    signal number delivered to the task (1–63). ``value`` is written to
+    ``sigev_value.sival_int`` (0 if unused). ``thread_id`` is
+    ``_sigev_un._tid`` (target task/thread id).
     """
 
     notify: int = SIGEV_SIGNAL

@@ -81,13 +81,10 @@ def PWMInfoStruct(channels, has_deadtime=False, has_pulsecount=False):
 class PWMChannel:
     """High-level view of one ``struct pwm_chan_s`` entry.
 
-    Attributes:
-        channel: NuttX channel index (``int8``).
-        cpol: Channel polarity.
-        dcpol: Disabled-channel polarity.
-        dead_time_a: Main-output dead time (requires ``has_deadtime=True``).
-        dead_time_b: Complementary-output dead time (requires ``has_deadtime=True``).
-        count: Pulse count (requires ``has_pulsecount=True``; 0 = indefinite).
+    ``channel`` is the NuttX channel index (``int8``). ``cpol`` and ``dcpol``
+    are channel and disabled-channel polarity. ``dead_time_a`` and
+    ``dead_time_b`` apply when ``has_deadtime=True``. ``count`` is the pulse
+    count when ``has_pulsecount=True`` (0 = indefinite).
 
     ``duty`` is exposed as a percentage (0–100) and converted to ``ub16_t``
     (0–65535) for the driver.

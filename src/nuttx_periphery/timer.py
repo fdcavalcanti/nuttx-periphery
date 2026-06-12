@@ -129,10 +129,9 @@ class TimerStatus:
     microseconds for TCIOC_GETSTATUS / TCIOC_MAXTIMEOUT, ticks for
     TCIOC_TICK_GETSTATUS / TCIOC_TICK_MAXTIMEOUT.
 
-    Attributes:
-        flags: Status bitmask (TCFLAGS_ACTIVE, TCFLAGS_HANDLER).
-        timeout: Configured timer period.
-        timeleft: Time remaining until next expiration.
+    ``flags`` is a status bitmask (``TCFLAGS_ACTIVE``, ``TCFLAGS_HANDLER``).
+    ``timeout`` is the configured timer period; ``timeleft`` is time remaining
+    until the next expiration.
     """
 
     flags: int
