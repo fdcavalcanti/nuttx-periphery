@@ -22,6 +22,9 @@ classifiers = [
   "Topic :: Software Development :: Embedded Systems",
 ]
 
+[project.urls]
+Documentation = "https://nuttx-periphery.readthedocs.io/en/stable/"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8",

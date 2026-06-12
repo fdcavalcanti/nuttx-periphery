@@ -1,7 +1,8 @@
 # nuttx-periphery
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![NuttX](https://img.shields.io/badge/platform-NuttX-lightgrey.svg)](https://nuttx.apache.org/)
+[![Python 3.13](https://img.shields.io/badge/python-3.13+-green.svg)](https://www.python.org/downloads/)
+[![NuttX](https://img.shields.io/badge/platform-NuttX-lightgrey.svg)](https://github.com/apache/nuttx)
+[![Documentation](https://readthedocs.org/projects/nuttx-periphery/badge/?version=stable)](https://nuttx-periphery.readthedocs.io/en/stable/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#license)
 
 **Pure Python peripheral APIs** for NuttX character devices.
@@ -9,6 +10,12 @@
 `nuttx_periphery` wraps GPIO, PWM, User LED, and Timer character devices with typed Python methods built on `os.open`, `fcntl.ioctl`, and ctypes structures aligned with NuttX headers.
 
 NuttX is a POSIX compliant real-time operating system (RTOS) which now has CPython support on QEMU RISC-V and Espressif devices such as ESP32-P4.
+
+## Documentation
+
+API reference and runnable examples are published on [Read the Docs](https://nuttx-periphery.readthedocs.io/en/stable/).
+
+- [Oneshot timer API](https://nuttx-periphery.readthedocs.io/en/stable/api/oneshot.html)
 
 ## Installation
 

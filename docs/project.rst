@@ -5,6 +5,9 @@ Project overview
 character devices with typed Python methods built on ``os.open``,
 ``fcntl.ioctl``, and ctypes structures aligned with NuttX headers.
 
+Online documentation: `Read the Docs <https://nuttx-periphery.readthedocs.io/en/stable/>`_
+(`Oneshot timer API <https://nuttx-periphery.readthedocs.io/en/stable/api/oneshot.html>`_)
+
 NuttX is a POSIX compliant real-time operating system (RTOS) which now has CPython
 support on QEMU RISC-V and Espressif devices such as ESP32-P4.
 
