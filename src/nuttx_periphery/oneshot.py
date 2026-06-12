@@ -47,9 +47,7 @@ TIMESPEC_SIZE = ctypes.sizeof(TimespecStruct)
 class Timespec:
     """NuttX ``struct timespec`` (seconds + nanoseconds).
 
-    Attributes:
-        tv_sec: Whole seconds.
-        tv_nsec: Nanoseconds (0–999_999_999).
+    ``tv_sec`` is whole seconds; ``tv_nsec`` is nanoseconds (0–999_999_999).
     """
 
     tv_sec: int
